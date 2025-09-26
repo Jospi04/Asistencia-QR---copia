@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "asistencia-qr"
+version = "0.1.0"
+description = "Sistema de asistencia con QR"
+authors = ["Joseph Ricopa <djjhotamix@email.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+Flask = "2.3.3"
+PyMySQL = "1.1.0"
+qrcode = "7.4.2"
+Pillow = "10.0.1"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
