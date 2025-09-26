@@ -7,27 +7,27 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
-from apscheduler.schedulers.background import BackgroundScheduler  # ✅ Agregado
+from apscheduler.schedulers.background import BackgroundScheduler
 
-# Importar infraestructura
-from src.infrastructure.mysql_connection import MySQLConnection
-from src.infrastructure.repositories_mysql import (
+# ✅ IMPORTS CORREGIDOS - sin "src."
+from infrastructure.mysql_connection import MySQLConnection
+from infrastructure.repositories_mysql import (
     EmpresaRepositoryMySQL,
     EmpleadoRepositoryMySQL,
     AsistenciaRepositoryMySQL,
     HorarioEstandarRepositoryMySQL,
     EscaneoTrackingRepositoryMySQL,
-    AdministradorRepository  # ✅ Agregado
+    AdministradorRepository
 )
 
-# Importar use cases
-from src.use_cases.register_employee import RegisterEmployeeUseCase
-from src.use_cases.mark_attendance import MarkAttendanceUseCase
-from src.use_cases.list_companies import ListCompaniesUseCase
-from src.use_cases.get_report import GetReportUseCase, minutos_a_hhmm
+from use_cases.register_employee import RegisterEmployeeUseCase
+from use_cases.mark_attendance import MarkAttendanceUseCase
+from use_cases.list_companies import ListCompaniesUseCase
+from use_cases.get_report import GetReportUseCase, minutos_a_hhmm
 
-# Importar QR generator
-from src.infrastructure.qr_generator import QRGenerator
+from infrastructure.qr_generator import QRGenerator
+
+
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', '106fb45d5c9176b32d7bd01e9d9e7c95')
