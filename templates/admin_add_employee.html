@@ -1,0 +1,181 @@
+    {% extends "base.html" %}
+
+    {% block title %}Registrar Empleado - Sistema de Asistencia QR{% endblock %}
+
+    {% block content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="header-gradient py-4 mb-4 rounded">
+                    <div class="container">
+                        <h1 class="mb-0"><i class="fas fa-user-plus me-3"></i>Registrar Nuevo Empleado</h1>
+                        <p class="mb-0">Complete el formulario para registrar un nuevo empleado en el sistema</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-user me-2"></i>Datos del Empleado</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="nombre" class="form-label">Nombre Completo *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-user"></i>
+                                        </span>
+                                        <input type="text" class="form-control" id="nombre" name="nombre" 
+                                            placeholder="Ingrese nombre completo" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="empresa_id" class="form-label">Empresa *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-building"></i>
+                                        </span>
+                                        <select class="form-select" id="empresa_id" name="empresa_id" required>
+                                            <option value="">Seleccione una empresa</option>
+                                            {% for empresa in empresas %}
+                                            <option value="{{ empresa.id }}">{{ empresa.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="dni" class="form-label">DNI *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-id-card"></i>
+                                        </span>
+                                        <input type="text" class="form-control" id="dni" name="dni" 
+                                            placeholder="Ingrese DNI" required maxlength="20">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="telefono" class="form-label">Teléfono</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-phone"></i>
+                                        </span>
+                                        <input type="tel" class="form-control" id="telefono" name="telefono" 
+                                            placeholder="Ingrese teléfono">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="correo" class="form-label">Correo Electrónico</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="fas fa-envelope"></i>
+                                    </span>
+                                    <input type="email" class="form-control" id="correo" name="correo" 
+                                        placeholder="Ingrese correo electrónico">
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('admin_list_employees') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>Registrar Empleado
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmación -->
+        <div class="modal fade" id="registroExitosoModal" tabindex="-1" aria-labelledby="registroExitosoModalLabel" role="dialog" aria-modal="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title" id="registroExitosoModalLabel">
+                            <i class="fas fa-check-circle me-2"></i>Registro Completado
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-user-check text-success" style="font-size: 3rem;"></i>
+                        </div>
+                        <h5 class="mb-2">¡Empleado Registrado!</h5>
+                        <p class="text-muted mb-4">
+                            El empleado ha sido registrado correctamente en el sistema.<br>
+                            <strong>El código QR único se ha generado y está listo para usar.</strong>
+                        </p>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <small>Puede ver y descargar el código QR en la lista de empleados</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                            <i class="fas fa-check me-1"></i>Aceptar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Instrucciones</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li>Los campos marcados con * son obligatorios</li>
+                            <li>Una vez registrado, se generará automáticamente un código QR único para el empleado</li>
+                            <li>El código QR se puede descargar o imprimir para su uso</li>
+                            <li>El empleado podrá usar este código QR para registrar su asistencia</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const flashMessages = document.querySelectorAll('.alert');
+        const modalElement = document.getElementById('registroExitosoModal');
+        const modal = new bootstrap.Modal(modalElement);
+
+        flashMessages.forEach(function(message) {
+            if (message.classList.contains('alert-success')) {
+                modal.show();
+                message.style.display = 'none';
+            }
+        });
+
+        // Fix: quitar aria-hidden apenas el modal empiece a abrirse
+        modalElement.addEventListener('show.bs.modal', function () {
+            modalElement.removeAttribute('aria-hidden');
+        });
+
+        // Volver a poner aria-hidden al cerrarse
+        modalElement.addEventListener('hidden.bs.modal', function () {
+            modalElement.setAttribute('aria-hidden', 'true');
+        });
+    });
+    </script>
+    {% endblock %}

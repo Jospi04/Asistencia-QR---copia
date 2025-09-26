@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Reportes - Sistema de Asistencia QR{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="header-gradient py-4 mb-4 rounded">
+                <div class="container">
+                    <h1 class="mb-0"><i class="fas fa-chart-bar me-3"></i>Reportes de Asistencia</h1>
+                    <p class="mb-0">Generación y visualización de reportes mensuales por empresa</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Parámetros de Reporte</h5>
+                </div>
+                <div class="card-body">
+                    <form id="report-form">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="empresa_id" class="form-label">Empresa *</label>
+                                <select class="form-select" id="empresa_id" name="empresa_id" required>
+                                    <option value="">Seleccione una empresa</option>
+                                    {% for empresa in empresas %}
+                                    <option value="{{ empresa.id }}">{{ empresa.nombre }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label for="mes" class="form-label">Mes *</label>
+                                <select class="form-select" id="mes" name="mes" required>
+                                    <option value="">Seleccione mes</option>
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option>
+                                    <option value="11">Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label for="anio" class="form-label">Año *</label>
+                                <select class="form-select" id="anio" name="anio" required>
+                                    <option value="">Seleccione año</option>
+                                    <option value="2024">2024</option>
+                                    <option value="2025">2025</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Generar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div id="report-container">
+                <div class="text-center py-5">
+                    <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                    <h4>Seleccione los parámetros para generar el reporte</h4>
+                    <p class="text-muted">Elija una empresa, mes y año para ver los reportes de asistencia</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variables para almacenar los parámetros actuales del reporte
+let currentReportParams = {
+    empresa_id: null,
+    mes: null,
+    anio: null
+};
+
+document.getElementById('report-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const empresaId = document.getElementById('empresa_id').value;
+    const mes = document.getElementById('mes').value;
+    const anio = document.getElementById('anio').value;
+    
+    if (!empresaId || !mes || !anio) {
+        alert('Por favor complete todos los campos');
+        return;
+    }
+    
+    // Guardar parámetros actuales
+    currentReportParams = {
+        empresa_id: empresaId,
+        mes: mes,
+        anio: anio
+    };
+    
+    // Mostrar indicador de carga
+    const reportContainer = document.getElementById('report-container');
+    reportContainer.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2">Generando reporte...</p>
+        </div>
+    `;
+    
+    // Obtener reporte
+    fetch(`/api/reports/monthly?empresa_id=${empresaId}&mes=${mes}&anio=${anio}`)
+        .then(response => response.json())
+        .then(data => {
+            mostrarReporte(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            reportContainer.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Error al generar el reporte. Por favor intente nuevamente.
+                </div>
+            `;
+        });
+});
+
+function mostrarReporte(data) {
+    const reportContainer = document.getElementById('report-container');
+    
+    if (data.error) {
+        reportContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${data.error}
+            </div>
+        `;
+        return;
+    }
+    
+    // Crear contenido del reporte
+    let empleadosHTML = '';
+    if (data.empleados && data.empleados.length > 0) {
+        empleadosHTML = `
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>DNI</th>
+                        <th>Asistencias</th>
+                        <th>Faltas</th>
+                        <th>Horas Normales</th>
+                        <th>Horas Extras</th>
+                        <th>% Asistencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${data.empleados.map(empleado => `
+                        <tr>
+                            <td>${empleado.nombre || ''}</td>
+                            <td>${empleado.dni || ''}</td>
+                            <td>${empleado.asistencias || 0}</td>
+                            <td>${empleado.faltas || 0}</td>
+                            <td>${empleado.horas_normales || 0}</td>
+                            <td>${empleado.horas_extras || 0}</td>
+                            <td>${empleado.porcentaje_asistencia || 0}%</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } else {
+        empleadosHTML = '<p class="text-center">No hay datos de empleados disponibles</p>';
+    }
+    
+    reportContainer.innerHTML = `
+        <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Reporte Mensual - ${data.empresa ? data.empresa.nombre : 'Empresa'}
+                </h5>
+                <div>
+                    <button class="btn btn-light btn-sm me-2" onclick="exportarExcel()">
+                        <i class="fas fa-file-excel me-1"></i>Exportar Excel
+                    </button>
+                    <button class="btn btn-light btn-sm" onclick="exportarPDF()">
+                        <i class="fas fa-file-pdf me-1"></i>Exportar PDF
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-building me-2"></i>Empresa</h6>
+                        <p class="mb-0">${data.empresa ? data.empresa.nombre : 'No especificada'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-calendar me-2"></i>Período</h6>
+                        <p class="mb-0">Mes: ${data.periodo ? data.periodo.mes : ''} ${data.periodo ? data.periodo.anio : ''}</p>
+                        <p class="mb-0">Del: ${data.periodo ? data.periodo.primer_dia : ''} al ${data.periodo ? data.periodo.ultimo_dia : ''}</p>
+                    </div>
+                </div>
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-primary text-white text-center">
+                            <div class="card-body">
+                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_empleados : 0}</h3>
+                                <p class="card-text mb-0">Empleados</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-success text-white text-center">
+                            <div class="card-body">
+                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_horas_normales : 0}</h3>
+                                <p class="card-text mb-0">Horas Normales</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-warning text-dark text-center">
+                            <div class="card-body">
+                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_horas_extras : 0}</h3>
+                                <p class="card-text mb-0">Horas Extras</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-danger text-white text-center">
+                            <div class="card-body">
+                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_faltas : 0}</h3>
+                                <p class="card-text mb-0">Faltas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h6><i class="fas fa-users me-2"></i>Detalle por Empleado</h6>
+                ${empleadosHTML}
+            </div>
+            <div class="card-footer text-muted">
+                <small>Generado el: ${new Date().toLocaleString('es-ES')}</small>
+            </div>
+        </div>
+    `;
+}
+
+function exportarExcel() {
+    // Verificar que haya parámetros de reporte guardados
+    if (!currentReportParams.empresa_id || !currentReportParams.mes || !currentReportParams.anio) {
+        alert('Por favor genere un reporte primero antes de exportar');
+        return;
+    }
+    
+    // Construir URL de exportación
+    const url = `/api/reports/export/excel?empresa_id=${currentReportParams.empresa_id}&mes=${currentReportParams.mes}&anio=${currentReportParams.anio}`;
+    
+    // Abrir en nueva pestaña para descargar
+    window.open(url, '_blank');
+}
+
+function exportarPDF() {
+    alert('Funcionalidad de exportación a PDF en desarrollo');
+}
+</script>
+{% endblock %}

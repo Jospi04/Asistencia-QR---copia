@@ -1,0 +1,360 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Empleados - Sistema de Asistencia QR{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="header-gradient py-4 mb-4 rounded">
+                <div class="container">
+                    <h1 class="mb-0"><i class="fas fa-users me-3"></i>Lista de Empleados</h1>
+                    <p class="mb-0">
+                        {% if empresa_seleccionada %}
+                            Empleados de {{ empresa_seleccionada.nombre }}
+                        {% else %}
+                            Todos los empleados registrados
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtrar por Empresa</h5>
+                        {% if empresa_seleccionada %}
+                        <a href="{{ url_for('admin_list_employees') }}" class="btn btn-sm btn-light">
+                            <i class="fas fa-times me-1"></i>Limpiar Filtro
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-8">
+                            <select class="form-select" name="empresa_id">
+                                <option value="">Todas las empresas</option>
+                                {% for empresa in empresas %}
+                                <option value="{{ empresa.id }}" 
+                                        {% if empresa_seleccionada and empresa_seleccionada.id == empresa.id %}selected{% endif %}>
+                                    {{ empresa.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-2"></i>Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <div class="text-center">
+                        <h4 class="mb-0">{{ empleados|length }}</h4>
+                        <small class="text-muted">Empleados encontrados</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Listado de Empleados</h5>
+                    <a href="{{ url_for('admin_add_employee') }}" class="btn btn-light btn-sm">
+                        <i class="fas fa-plus me-1"></i>Nuevo Empleado
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if empleados %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>DNI</th>
+                                    <th>Empresa</th>
+                                    <th>Teléfono</th>
+                                    <th>Estado</th>
+                                    <th>QR</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for empleado in empleados %}
+                                <tr id="empleado-{{ empleado.id }}">
+                                    <td>{{ empleado.id }}</td>
+                                    <td>
+                                        <strong>{{ empleado.nombre }}</strong>
+                                    </td>
+                                    <td>{{ empleado.dni }}</td>
+                                    <td>
+                                        {% set empresa_empleado = None %}
+                                        {% for empresa in empresas %}
+                                            {% if empresa.id == empleado.empresa_id %}
+                                                {% set empresa_empleado = empresa %}
+                                                <span class="badge bg-primary">{{ empresa.nombre }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </td>
+                                    <td>{{ empleado.telefono or '-' }}</td>
+                                    <td>
+                                        {% if empleado.activo %}
+                                        <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-info" 
+                                                data-empleado-id="{{ empleado.id }}"
+                                                onclick="generarQR(this)"
+                                                title="Generar/Ver Código QR">
+                                            <i class="fas fa-qrcode"></i>
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-primary" 
+                                                    data-empleado-id="{{ empleado.id }}"
+                                                    onclick="editarEmpleado(this)"
+                                                    title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" 
+                                                    data-empleado-id="{{ empleado.id }}"
+                                                    data-empleado-nombre="{{ empleado.nombre }}"
+                                                    onclick="eliminarEmpleado(this)"
+                                                    title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <h4>No se encontraron empleados</h4>
+                        <p class="text-muted">No hay empleados registrados que coincidan con los criterios de búsqueda.</p>
+                        <a href="{{ url_for('admin_add_employee') }}" class="btn btn-primary">
+                            <i class="fas fa-user-plus me-2"></i>Registrar Primer Empleado
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para QR -->
+<div class="modal fade" id="qrModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i>Código QR del Empleado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="qrContent">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Generando código QR...</p>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary" onclick="descargarQRActual()">
+                        <i class="fas fa-download me-2"></i>Descargar QR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmación de eliminación -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar Eliminación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="confirmButton">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variables globales
+let empleadoIdActual = null;
+let accionPendiente = null;
+let parametrosAccion = null;
+
+function generarQR(button) {
+    const empleadoId = button.getAttribute('data-empleado-id');
+    empleadoIdActual = empleadoId;
+    
+    // Mostrar modal de carga
+    const qrContent = document.getElementById('qrContent');
+    qrContent.innerHTML = `
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-2">Generando código QR...</p>
+    `;
+    
+    // Abrir modal
+    const modal = new bootstrap.Modal(document.getElementById('qrModal'));
+    modal.show();
+    
+    // Aquí iría la llamada AJAX para generar el QR real
+    setTimeout(() => {
+        qrContent.innerHTML = `
+            <div class="border p-3 rounded">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=EMP_${empleadoId}" 
+                     alt="Código QR" class="img-fluid">
+                <p class="mt-2 mb-0"><strong>Empleado ID: ${empleadoId}</strong></p>
+                <small class="text-muted">Escanea este código para registrar asistencia</small>
+            </div>
+        `;
+    }, 1000);
+}
+
+function descargarQRActual() {
+    if (empleadoIdActual) {
+        descargarQR(empleadoIdActual);
+    }
+}
+
+function descargarQR(empleadoId) {
+    const url = `/admin/download_qr/${empleadoId}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `qr_empleado_${empleadoId}.png`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    const modal = bootstrap.Modal.getInstance(document.getElementById('qrModal'));
+    modal.hide();
+}
+
+function editarEmpleado(button) {
+    const empleadoId = button.getAttribute('data-empleado-id');
+    // Redirigir a la página de edición
+    window.location.href = `/admin/edit_employee/${empleadoId}`;
+}
+
+function eliminarEmpleado(button) {
+    const empleadoId = button.getAttribute('data-empleado-id');
+    const empleadoNombre = button.getAttribute('data-empleado-nombre');
+    const mensaje = `¿Estás seguro de eliminar al empleado "${empleadoNombre}" (ID: ${empleadoId})? Esta acción no se puede deshacer.`;
+    
+    // Mostrar modal de confirmación
+    document.getElementById('confirmMessage').textContent = mensaje;
+    const confirmButton = document.getElementById('confirmButton');
+    confirmButton.onclick = function() {
+        realizarEliminarEmpleado(empleadoId);
+        bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+    };
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    modal.show();
+}
+
+function realizarEliminarEmpleado(empleadoId) {
+    fetch(`/admin/delete_employee/${empleadoId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Mostrar mensaje de éxito
+            mostrarMensaje(data.message, 'success');
+            
+            // Eliminar la fila de la tabla
+            eliminarFilaEmpleado(empleadoId);
+        } else {
+            mostrarMensaje(data.message || 'Error desconocido', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarMensaje('Error de conexión', 'error');
+    });
+}
+
+function eliminarFilaEmpleado(empleadoId) {
+    const fila = document.getElementById(`empleado-${empleadoId}`);
+    if (fila) {
+        // Agregar animación de salida
+        fila.style.transition = 'opacity 0.3s ease';
+        fila.style.opacity = '0';
+        
+        // Eliminar después de la animación
+        setTimeout(() => {
+            fila.remove();
+            
+            // Actualizar contador de empleados
+            const contador = document.querySelector('.text-center h4');
+            if (contador) {
+                const cantidadActual = parseInt(contador.textContent) || 0;
+                contador.textContent = cantidadActual - 1;
+            }
+        }, 300);
+    }
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    // Crear alerta
+    const alertDiv = document.createElement('div');
+    const tipoBootstrap = tipo === 'error' ? 'danger' : tipo;
+    alertDiv.className = `alert alert-${tipoBootstrap} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 500px;';
+    alertDiv.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insertar en el cuerpo de la página
+    document.body.appendChild(alertDiv);
+    
+    // Auto cerrar después de 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}  
