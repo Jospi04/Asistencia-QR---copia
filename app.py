@@ -9,9 +9,9 @@ from openpyxl.utils import get_column_letter
 import calendar
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# ✅ IMPORTS CORREGIDOS - sin "src."
-from infrastructure.mysql_connection import MySQLConnection
-from infrastructure.repositories_mysql import (
+# ✅ IMPORTS CORREGIDOS - con "src."
+from src.infrastructure.mysql_connection import MySQLConnection
+from src.infrastructure.repositories_mysql import (
     EmpresaRepositoryMySQL,
     EmpleadoRepositoryMySQL,
     AsistenciaRepositoryMySQL,
@@ -20,12 +20,12 @@ from infrastructure.repositories_mysql import (
     AdministradorRepository
 )
 
-from use_cases.register_employee import RegisterEmployeeUseCase
-from use_cases.mark_attendance import MarkAttendanceUseCase
-from use_cases.list_companies import ListCompaniesUseCase
-from use_cases.get_report import GetReportUseCase, minutos_a_hhmm
+from src.use_cases.register_employee import RegisterEmployeeUseCase
+from src.use_cases.mark_attendance import MarkAttendanceUseCase
+from src.use_cases.list_companies import ListCompaniesUseCase
+from src.use_cases.get_report import GetReportUseCase, minutos_a_hhmm
 
-from infrastructure.qr_generator import QRGenerator
+from src.infrastructure.qr_generator import QRGenerator
 
 
 
