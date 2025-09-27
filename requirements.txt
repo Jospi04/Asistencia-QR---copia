@@ -1,7 +1,7 @@
 Flask==2.3.3
 PyMySQL==1.1.0
 qrcode==7.4.2
-Pillow==9.5.0  # ✅ Versión COMPROBADA con Python 3.11
+Pillow==10.4.0  # ✅ Versión COMPROBADA con Python 3.13
 pandas==1.5.3
 openpyxl==3.0.10
 APScheduler==3.9.1
