@@ -7,9 +7,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import BackgroundScheduler  # ✅ Agregado
 
-# ✅ IMPORTS CORREGIDOS - con "src."
+# Importar infraestructura
 from src.infrastructure.mysql_connection import MySQLConnection
 from src.infrastructure.repositories_mysql import (
     EmpresaRepositoryMySQL,
@@ -17,20 +17,20 @@ from src.infrastructure.repositories_mysql import (
     AsistenciaRepositoryMySQL,
     HorarioEstandarRepositoryMySQL,
     EscaneoTrackingRepositoryMySQL,
-    AdministradorRepository
+    AdministradorRepository  # ✅ Agregado
 )
 
+# Importar use cases
 from src.use_cases.register_employee import RegisterEmployeeUseCase
 from src.use_cases.mark_attendance import MarkAttendanceUseCase
 from src.use_cases.list_companies import ListCompaniesUseCase
 from src.use_cases.get_report import GetReportUseCase, minutos_a_hhmm
 
+# Importar QR generator
 from src.infrastructure.qr_generator import QRGenerator
 
-
-
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', '106fb45d5c9176b32d7bd01e9d9e7c95')
+app.secret_key = os.getenv('SECRET_KEY', '')
 
 # Configuración de base de datos
 db_connection = MySQLConnection()
@@ -325,8 +325,12 @@ def api_scan_qr():
 # Rutas de reportes
 @app.route('/reports')
 def reports():
-    empresas = list_companies_use_case.execute()
-    return render_template('report.html', empresas=empresas)
+     if not session.get('admin_logged_in'):
+        flash('Debes iniciar sesión para acceder a los reportes', 'error')
+        return redirect(url_for('admin_login'))
+     
+     empresas = list_companies_use_case.execute()
+     return render_template('report.html', empresas=empresas)
 
 @app.route('/api/reports/monthly')
 def api_monthly_report():
@@ -571,4 +575,4 @@ def internal_error(error):
     return render_template('error.html', error_message="Error interno del servidor"), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8080)

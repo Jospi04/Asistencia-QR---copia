@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+import pytz # ✅ Manejo de zonas horarias
 import math  # ✅ Magia para redondear hacia arriba
 from src.infrastructure.email_service import EmailService
 from src.domain.entities import Empleado, Asistencia
@@ -50,10 +51,10 @@ class MarkAttendanceUseCase:
                 "message": "Empleado no encontrado",
                 "data": None
             }
-        
-        fecha_actual = datetime.now().date().strftime('%Y-%m-%d')
-        hora_actual = datetime.now().time()
-        
+        tz = pytz.timezone("America/Lima")
+        fecha_actual = datetime.now(tz).date().strftime('%Y-%m-%d')
+        hora_actual = datetime.now(tz).time()
+
         asistencia = self.asistencia_repository.get_by_empleado_and_fecha(
             empleado.id, fecha_actual
         )

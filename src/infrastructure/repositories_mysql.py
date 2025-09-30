@@ -486,7 +486,7 @@ class AdministradorRepository:
         """Obtiene un administrador por su nombre de usuario"""
         query = """
             SELECT id, empresa_id, nombre, usuario, password_hash, telefono, correo, rol, activo, created_at
-            FROM administradores
+            FROM ADMINISTRADORES
             WHERE usuario = %s AND activo = TRUE
         """
         results = self.db.execute_query(query, (username,))

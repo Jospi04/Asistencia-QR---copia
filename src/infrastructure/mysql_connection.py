@@ -26,9 +26,14 @@ class MySQLConnection:
                 collation='utf8mb4_unicode_ci',
                 autocommit=True,
                 use_unicode=True,
-                auth_plugin='mysql_native_password'
+                auth_plugin='mysql_native_password',
+                init_command="SET time_zone = '-05:00'"
             )
             if self.connection.is_connected():
+                # 🔹 Fijar la zona horaria a Lima cada vez que se conecte
+                cursor = self.connection.cursor()
+                cursor.execute("SET time_zone = 'America/Lima'")
+                cursor.close()
                 print(f"✅ Conexión exitosa a MySQL en AWS RDS - Base de datos: {self.database}")
                 return self.connection
         except Error as e:
