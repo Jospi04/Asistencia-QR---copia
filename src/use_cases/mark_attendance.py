@@ -68,10 +68,10 @@ class MarkAttendanceUseCase:
         resultado = self._procesar_registro_horario(asistencia, hora_actual)
 
         if resultado["actualizado"]:
-            # ⚡ Primero calculo las horas trabajadas y estado por turnos
+            #  Primero calculo las horas trabajadas y estado por turnos
             self._calcular_horas_trabajadas(asistencia)
 
-            # ⚡ Luego guardo en BD ya con horas y estados calculados
+            #  Luego guardo en BD ya con horas y estados calculados
             if asistencia.id:
                 self.asistencia_repository.update(asistencia)
             else:
@@ -112,10 +112,10 @@ class MarkAttendanceUseCase:
         - Solo permite registros de mañana antes de las 12:00 PM.
         - A partir de las 12:00 PM, solo permite registros de tarde.
         """
-        # ⏰ Definir límites de turnos
-        hora_limite_mañana = time(12, 0)  # Hasta las 12:00 PM es "mañana"
+        #  Definir límites de turnos
+        hora_limite_mañana = time(13, 30)  # Hasta las 14:00 PM es "mañana"
 
-        # 🕐 Verificar si ya pasó el turno de mañana
+        #  Verificar si ya pasó el turno de mañana
         ya_es_tarde = hora_actual >= hora_limite_mañana
 
         # 🔁 Lógica mejorada por orden y hora
@@ -232,7 +232,7 @@ class MarkAttendanceUseCase:
             total_segundos = diferencia.total_seconds()
 
             # ✅ Redondear hacia arriba: 1 segundo = 1 minuto
-            minutos_redondeados = int(total_segundos / 60)
+            minutos_redondeados = int(total_segundos // 60)
 
             return max(0, int(minutos_redondeados))
         except Exception as e:
@@ -280,8 +280,8 @@ class MarkAttendanceUseCase:
             cursor = conn.cursor()
             query = """
                 SELECT ca.*, e.nombre as empresa_nombre
-                FROM config_alertas ca
-                JOIN empresas e ON ca.empresa_id = e.id
+                FROM CONFIG_ALERTAS ca
+                JOIN EMPRESAS e ON ca.empresa_id = e.id
                 WHERE ca.empresa_id = %s AND ca.activo = TRUE
                 LIMIT 1
             """
@@ -313,8 +313,8 @@ class MarkAttendanceUseCase:
             conn = get_connection()
             cursor = conn.cursor()
             query = """
-                SELECT correo_admin
-                FROM empresas
+                SELECT correo
+                FROM ADMINISTRADORES
                 WHERE id = %s
                 LIMIT 1
             """
@@ -336,7 +336,7 @@ class MarkAttendanceUseCase:
             cursor = conn.cursor()
             query = """
                 SELECT COUNT(*) 
-                FROM asistencia
+                FROM ASISTENCIA
                 WHERE empleado_id = %s 
                   AND fecha >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
                   AND estado_dia = 'FALTA'
@@ -356,7 +356,7 @@ class MarkAttendanceUseCase:
             cursor = conn.cursor()
             query = """
                 SELECT COUNT(*) 
-                FROM asistencia
+                FROM ASISTENCIA
                 WHERE empleado_id = %s 
                   AND fecha >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
                   AND (tardanza_manana = TRUE OR tardanza_tarde = TRUE)
@@ -376,7 +376,7 @@ class MarkAttendanceUseCase:
             cursor = conn.cursor()
             query = """
                 SELECT 1
-                FROM alertas_enviadas
+                FROM ALERTAS_ENVIADAS
                 WHERE empleado_id = %s AND numero = %s AND tipo = %s
                 LIMIT 1
             """
@@ -394,7 +394,7 @@ class MarkAttendanceUseCase:
             conn = get_connection()
             cursor = conn.cursor()
             query = """
-                INSERT INTO alertas_enviadas (empleado_id, numero, tipo)
+                INSERT INTO ALERTAS_ENVIADAS (empleado_id, numero, tipo)
                 VALUES (%s, %s, %s)
             """
             cursor.execute(query, (empleado_id, numero, tipo))
@@ -593,7 +593,7 @@ class MarkAttendanceUseCase:
             # Obtener lunes y domingo de la semana pasada
             query = """
                 SELECT COUNT(*)
-                FROM asistencia
+                FROM ASISTENCIA
                 WHERE empleado_id = %s
                   AND fecha >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)
                   AND fecha <= CURDATE()
@@ -615,7 +615,7 @@ class MarkAttendanceUseCase:
             cursor = conn.cursor()
             query = """
                 SELECT COUNT(*)
-                FROM asistencia
+                FROM ASISTENCIA
                 WHERE empleado_id = %s
                   AND fecha >= DATE_SUB(CURDATE(), INTERVAL 1 WEEK)
                   AND fecha <= CURDATE()
