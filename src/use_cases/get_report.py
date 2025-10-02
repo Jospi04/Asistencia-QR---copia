@@ -12,7 +12,7 @@ import calendar
 def minutos_a_hhmm(total_minutos: int) -> str:
     """
     Convierte minutos totales a formato HH:MM
-    Ej: 90 → "1:30", 16 → "0:16", 480 → "8:00"
+    Ej: 90 -> "1:30", 16 -> "0:16", 480 -> "8:00"
     """
     if total_minutos < 0:
         total_minutos = 0
@@ -34,14 +34,11 @@ class GetReportUseCase:
         """
         Genera reporte mensual de asistencia para una empresa
         """
-        # Obtener empleados de la empresa
         empleados = self.empleado_repository.get_by_empresa_id(empresa_id)
         
-        # Primer y último día del mes
         primer_dia = f"{anio}-{mes:02d}-01"
         ultimo_dia = f"{anio}-{mes:02d}-{calendar.monthrange(anio, mes)[1]}"
         
-        # Recopilar datos para cada empleado
         reporte_empleados = []
         totales = {
             "total_empleados": len(empleados),
@@ -58,12 +55,10 @@ class GetReportUseCase:
         }
         
         for empleado in empleados:
-            # Obtener asistencias del período
             asistencias = self.asistencia_repository.get_by_empleado_and_periodo(
                 empleado.id, primer_dia, ultimo_dia
             )
             
-            # Calcular estadísticas del empleado
             stats = self._calcular_estadisticas_empleado(asistencias)
             
             reporte_empleados.append({
@@ -84,7 +79,6 @@ class GetReportUseCase:
                 "porcentaje_asistencia": stats["porcentaje_asistencia"]
             })
             
-            # Actualizar totales
             totales["total_horas_normales"] += stats["horas_normales"]
             totales["total_horas_extras"] += stats["horas_extras"]
             totales["total_faltas"] += stats["faltas"]
@@ -95,10 +89,7 @@ class GetReportUseCase:
             totales["total_retardos_manana"] += stats["retardos_manana"]
             totales["total_retardos_tarde"] += stats["retardos_tarde"]
         
-        # Calcular días laborables del mes
         totales["dias_laborables"] = self._contar_dias_laborables(mes, anio)
-
-        # ✅ Redondear totales a 2 decimales para evitar errores de representación
         totales["total_horas_normales"] = round(totales["total_horas_normales"], 2)
         totales["total_horas_extras"] = round(totales["total_horas_extras"], 2)
         
@@ -119,24 +110,19 @@ class GetReportUseCase:
         """
         Genera reporte detallado de un empleado específico
         """
-        # Obtener empleado
         empleado = self.empleado_repository.get_by_id(empleado_id)
         if not empleado:
             return {"error": "Empleado no encontrado"}
         
-        # Primer y último día del mes
         primer_dia = f"{anio}-{mes:02d}-01"
         ultimo_dia = f"{anio}-{mes:02d}-{calendar.monthrange(anio, mes)[1]}"
         
-        # Obtener asistencias
         asistencias = self.asistencia_repository.get_by_empleado_and_periodo(
             empleado.id, primer_dia, ultimo_dia
         )
         
-        # Detalle diario
         detalle_diario = []
         for asistencia in asistencias:
-            # Convertir total_horas_trabajadas a minutos → HH:MM
             total_minutos = int(asistencia.total_horas_trabajadas * 60)
             total_horas_format = minutos_a_hhmm(total_minutos)
 
@@ -151,7 +137,6 @@ class GetReportUseCase:
                 "estado": asistencia.estado_dia
             })
         
-        # Estadísticas generales
         stats = self._calcular_estadisticas_empleado(asistencias)
         
         return {
@@ -265,16 +250,16 @@ class GetReportUseCase:
         
         for dia in range(1, ultimo_dia + 1):
             fecha = date(anio, mes, dia)
-            # 0-4 son lunes a viernes (laborables)
             if fecha.weekday() < 5:
                 dias_laborables += 1
         
         return dias_laborables
 
+
 class GetReportRequest:
     def __init__(self, empresa_id: int = None, empleado_id: int = None, 
                  mes: int = None, anio: int = None):
-        self.empresa_id = empresa_id or datetime.now().month
+        self.empresa_id = empresa_id
+        self.mes = mes or datetime.now().month
         self.anio = anio or datetime.now().year
         self.empleado_id = empleado_id
-        self.mes = mes

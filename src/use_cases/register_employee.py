@@ -13,10 +13,8 @@ class RegisterEmployeeUseCase:
         """
         Registra un nuevo empleado y genera su código QR único
         """
-        # Generar código QR único
         codigo_qr = self._generate_unique_qr_code(empresa_id)
         
-        # Crear empleado
         empleado = Empleado(
             empresa_id=empresa_id,
             nombre=nombre,
@@ -26,7 +24,6 @@ class RegisterEmployeeUseCase:
             correo=correo
         )
         
-        # Guardar en repositorio
         empleado_guardado = self.empleado_repository.create(empleado)
         
         return empleado_guardado
@@ -40,6 +37,7 @@ class RegisterEmployeeUseCase:
         random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         return f"EMP_{empresa_id}_{timestamp}_{random_chars}"
 
+
 class RegisterEmployeeRequest:
     def __init__(self, nombre: str, empresa_id: int, dni: str, 
                  telefono: str = "", correo: str = ""):
@@ -48,4 +46,3 @@ class RegisterEmployeeRequest:
         self.dni = dni
         self.telefono = telefono
         self.correo = correo
-
