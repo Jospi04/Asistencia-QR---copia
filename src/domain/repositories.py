@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from typing import List, Optional
 from .entities import *
 from datetime import timedelta, time
+
+
 def convertir_a_time(valor) -> Optional[time]:
     """
     Convierte un valor de MySQL (puede ser time, timedelta, str o None) a datetime.time
@@ -15,12 +17,10 @@ def convertir_a_time(valor) -> Optional[time]:
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
         seconds = total_seconds % 60
-        # Asegurar que las horas estén en rango 0-23 (por si acaso)
         hours = hours % 24
         return time(hours, minutes, seconds)
     if isinstance(valor, str):
         try:
-            # Intentar parsear 'HH:MM:SS'
             parts = valor.split(':')
             if len(parts) >= 2:
                 h = int(parts[0])
@@ -30,6 +30,7 @@ def convertir_a_time(valor) -> Optional[time]:
         except:
             return None
     return None
+
 
 class EmpresaRepository(ABC):
     @abstractmethod
@@ -52,6 +53,7 @@ class EmpresaRepository(ABC):
     def delete(self, id: int) -> bool:
         """Elimina una empresa por su ID"""
         pass
+
 
 class EmpleadoRepository(ABC):
     @abstractmethod
@@ -82,6 +84,7 @@ class EmpleadoRepository(ABC):
     def delete(self, id: int) -> bool:
         """Elimina un empleado por su ID (eliminación completa de la base de datos)"""
         pass
+
 
 class AsistenciaRepository(ABC):
     @abstractmethod
@@ -119,6 +122,7 @@ class AsistenciaRepository(ABC):
         """Registra que se envió una alerta"""
         pass
 
+
 class HorarioEstandarRepository(ABC):
     @abstractmethod
     def get_by_empresa_id(self, empresa_id: int) -> Optional[HorarioEstandar]:
@@ -132,6 +136,7 @@ class HorarioEstandarRepository(ABC):
     def update(self, horario: HorarioEstandar) -> HorarioEstandar:
         pass
 
+
 class EscaneoTrackingRepository(ABC):
     @abstractmethod
     def create(self, escaneo: EscaneoTracking) -> EscaneoTracking:
@@ -140,30 +145,3 @@ class EscaneoTrackingRepository(ABC):
     @abstractmethod
     def existe_registro_reciente(self, codigo_qr: str, segundos: int) -> bool:
         pass
-
-# from typing import List, Optional, Dict, Any
-# from datetime import date
-
-# class EmpresaRepository:
-#     def list_all(self) -> List[Dict[str, Any]]:
-#         raise NotImplementedError
-
-# class EmpleadoRepository:
-#     def create(self, empresa_id: int, nombre: str, dni: Optional[str]) -> int:
-#         raise NotImplementedError
-#     def update_qr(self, empleado_id: int, qr_filename: str) -> None:
-#         raise NotImplementedError
-#     def get_with_empresa(self, empleado_id: int) -> Optional[Dict[str, Any]]:
-#         raise NotImplementedError
-#     def list_by_empresa(self, empresa_id: Optional[int]) -> List[Dict[str, Any]]:
-#         raise NotImplementedError
-
-# class AsistenciaRepository:
-#     def get_last_for_day(self, empleado_id: int, fecha: date) -> Optional[Dict]:
-#         raise NotImplementedError
-#     def create_entrada(self, empleado_id: int, fecha: date, hora: str) -> None:
-#         raise NotImplementedError
-#     def set_salida(self, asistencia_id: int, hora: str) -> None:
-#         raise NotImplementedError
-#     def report_by_empresa_and_range(self, empresa_id: int, desde: date, hasta: date) -> List[Dict]:
-#         raise NotImplementedError

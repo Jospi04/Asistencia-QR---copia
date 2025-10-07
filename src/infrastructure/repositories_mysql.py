@@ -3,9 +3,9 @@ from datetime import datetime, timedelta, time
 from .mysql_connection import MySQLConnection
 from src.domain.repositories import *
 from src.domain.entities import *
-import hashlib  # ✅ Para verificar contraseñas
+import hashlib
 
-# ✅ Función de ayuda para convertir cualquier tipo de hora de MySQL a time
+
 def convertir_a_time(valor) -> Optional[time]:
     """
     Convierte un valor de MySQL (puede ser time, timedelta, str o None) a datetime.time
@@ -19,12 +19,10 @@ def convertir_a_time(valor) -> Optional[time]:
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
         seconds = total_seconds % 60
-        # Asegurar que las horas estén en rango 0-23 (por si acaso)
         hours = hours % 24
         return time(hours, minutes, seconds)
     if isinstance(valor, str):
         try:
-            # Intentar parsear 'HH:MM:SS'
             parts = valor.split(':')
             if len(parts) >= 2:
                 h = int(parts[0])
@@ -34,6 +32,7 @@ def convertir_a_time(valor) -> Optional[time]:
         except:
             return None
     return None
+
 
 class EmpresaRepositoryMySQL(EmpresaRepository):
     def __init__(self, db_connection: MySQLConnection):
@@ -213,7 +212,6 @@ class EmpleadoRepositoryMySQL(EmpleadoRepository):
     def delete(self, id: int) -> bool:
         """ELIMINACIÓN COMPLETA de la base de datos"""
         try:
-            # Eliminar registros relacionados primero (en orden de dependencia)
             queries = [
                 "DELETE FROM ALERTAS_ENVIADAS WHERE empleado_id = %s",
                 "DELETE FROM ASISTENCIA WHERE empleado_id = %s",
@@ -228,6 +226,7 @@ class EmpleadoRepositoryMySQL(EmpleadoRepository):
         except Exception as e:
             print(f"Error eliminando empleado {id}: {e}")
             return False
+
 
 class AsistenciaRepositoryMySQL(AsistenciaRepository):
     def __init__(self, db_connection: MySQLConnection):
@@ -356,8 +355,6 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
         ))
         return asistencia
     
-    # MÉTODOS CORREGIDOS PARA ALERTAS
-    
     def contar_faltas_empleado(self, empleado_id: int, dias: int = 30) -> int:
         """Cuenta las faltas de un empleado en los últimos X días"""
         try:
@@ -402,6 +399,7 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
         except Exception as e:
             print(f"Error registrando alerta: {e}")
             return False
+
 
 class HorarioEstandarRepositoryMySQL(HorarioEstandarRepository):
     def __init__(self, db_connection: MySQLConnection):
@@ -451,6 +449,7 @@ class HorarioEstandarRepositoryMySQL(HorarioEstandarRepository):
         ))
         return horario
 
+
 class EscaneoTrackingRepositoryMySQL(EscaneoTrackingRepository):
     def __init__(self, db_connection: MySQLConnection):
         self.db = db_connection
@@ -477,7 +476,7 @@ class EscaneoTrackingRepositoryMySQL(EscaneoTrackingRepository):
         """Registra un escaneo (método adicional útil)"""
         return self.create(codigo_qr, ip_address)
 
-# ✅ Nueva clase: AdministradorRepository
+
 class AdministradorRepository:
     def __init__(self, db_connection: MySQLConnection):
         self.db = db_connection
@@ -496,6 +495,5 @@ class AdministradorRepository:
     
     def verify_password(self, stored_password_hash: str, provided_password: str) -> bool:
         """Verifica si la contraseña proporcionada coincide con el hash almacenado"""
-        # Si usas hash simple (como en tu ejemplo), usa esto:
         provided_hash = hashlib.sha256(provided_password.encode('utf-8')).hexdigest()
         return provided_hash == stored_password_hash

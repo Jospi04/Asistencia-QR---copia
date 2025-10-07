@@ -13,7 +13,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #f8f9fa;
+    background-color: #ffffff;
     overflow: hidden;
     margin: 0 auto;
     position: relative;
@@ -69,7 +69,8 @@
     <div class="row">
         <div class="col-lg-8">
             <div class="card">
-                <div class="card-header bg-primary text-white">
+                <div class="card-header" style="background-color: #14532d; color: white;">
+
                     <h5 class="mb-0"><i class="fas fa-video me-2"></i>Cámara de Escaneo</h5>
                 </div>
                 <div class="card-body">
@@ -96,7 +97,8 @@
         
         <div class="col-lg-4">
             <div class="card mb-4">
-                <div class="card-header bg-success text-white">
+                <div class="card-header" style="background-color: #14532d; color: white;">
+
                     <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Estado del Sistema</h5>
                 </div>
                 <div class="card-body">
@@ -109,7 +111,7 @@
                     <hr>
                     <div class="d-flex justify-content-between">
                         <span>Estado:</span>
-                        <span class="badge bg-success">En línea</span>
+                        <span class="badge" style="background-color: #198754; color: white;">En línea</span>
                     </div>
                     <div class="d-flex justify-content-between mt-2">
                         <span>Turno:</span>
@@ -119,7 +121,8 @@
             </div>
             
             <div class="card">
-                <div class="card-header bg-info text-white">
+                <div class="card-header" style="background-color: #0d1b2a; color: white;">
+
                     <h5 class="mb-0"><i class="fas fa-history me-2"></i>Últimos Registros</h5>
                 </div>
                 <div class="card-body">
@@ -430,4 +433,33 @@ document.addEventListener('DOMContentLoaded', function() {
     actualizarHora();
 });
 </script>
+
+ <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-qrcode me-2"></i>Sistema de Asistencia QR</h5>
+                    <p>Sistema avanzado de control de asistencia mediante códigos QR para múltiples empresas.</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>Enlaces</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="{{ url_for('index') }}" class="text-white">Inicio</a></li>
+                        <li><a href="{{ url_for('scan_qr') }}" class="text-white">Escanear QR</a></li>
+                        <li><a href="{{ url_for('reports') }}" class="text-white">Reportes</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Contacto</h5>
+                    <p><i class="fas fa-envelope me-2"></i>djjhotamix@gmail.com</p>
+                    <p><i class="fas fa-phone me-2"></i>+51 916 921 168</p>
+                </div>
+            </div>
+            <hr class="bg-light">
+            <div class="text-center">
+                <p>&copy; 2025 Sistema de Asistencia QR. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
 {% endblock %}

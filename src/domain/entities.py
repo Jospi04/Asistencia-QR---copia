@@ -1,6 +1,7 @@
 from datetime import datetime, time
 from typing import Optional
 
+
 class Empresa:
     def __init__(self, id: int = None, nombre: str = "", codigo_empresa: str = ""):
         self.id = id
@@ -8,6 +9,7 @@ class Empresa:
         self.codigo_empresa = codigo_empresa
         self.created_at: Optional[datetime] = None
         self.updated_at: Optional[datetime] = None
+
 
 class Empleado:
     def __init__(self, id: int = None, empresa_id: int = None, nombre: str = "", 
@@ -22,6 +24,7 @@ class Empleado:
         self.correo = correo
         self.activo = activo
         self.fecha_registro: Optional[datetime] = None
+
 
 class HorarioEstandar:
     def __init__(self, id: int = None, empresa_id: int = None,
@@ -57,7 +60,7 @@ class Asistencia:
         self.horas_extras = horas_extras
         self.estado_dia = estado_dia
         
-        # ✅ Nuevos campos para control por turno
+         # Nuevos campos para control por turno
         self.asistio_manana: bool = False
         self.asistio_tarde: bool = False
         self.tardanza_manana: bool = False
@@ -66,6 +69,7 @@ class Asistencia:
         # Campos de auditoría
         self.created_at: Optional[datetime] = None
         self.updated_at: Optional[datetime] = None
+
 
 class Administrador:
     def __init__(self, id: int = None, empresa_id: int = None, nombre: str = "",
@@ -82,6 +86,7 @@ class Administrador:
         self.activo = activo
         self.created_at: Optional[datetime] = None
 
+
 class ConfigAlertas:
     def __init__(self, id: int = None, empresa_id: int = None,
                  numero_faltas_para_alerta: int = 4,
@@ -94,10 +99,10 @@ class ConfigAlertas:
         self.mensaje_whatsapp_admin = mensaje_whatsapp_admin
         self.activo = activo
 
+
 class EscaneoTracking:
     def __init__(self, id: int = None, codigo_qr: str = "", ip_address: str = ""):
         self.id = id
         self.codigo_qr = codigo_qr
         self.ip_address = ip_address
-        self.timestamp_escaneo: Optional[datetime] = None            # VACACIONES, PERMISO, DESCANSO
-
+        self.timestamp_escaneo: Optional[datetime] = None

@@ -5,13 +5,13 @@ from typing import Optional
 
 class MySQLConnection:
     def __init__(self):
-        # 🔹 Configuración para AWS RDS
+        # Configuración para AWS RDS
         # Usa variables de entorno para no exponer credenciales en el código
-        self.host = os.getenv('DB_HOST', 'joseph.cjows6c2y07g.us-east-2.rds.amazonaws.com')  # Endpoint de RDS
-        self.port = os.getenv('DB_PORT', '3306')                          # Puerto por defecto
-        self.database = os.getenv('DB_NAME', 'sistema_asistencia_qr')     # Nombre de la BD en AWS
-        self.user = os.getenv('DB_USER', 'admin')                         # Usuario configurado en RDS
-        self.password = os.getenv('DB_PASSWORD', 'Vikyvaleria.24')           # Contraseña configurada en RDS
+        self.host = os.getenv('DB_HOST', 'joseph.cjows6c2y07g.us-east-2.rds.amazonaws.com')
+        self.port = os.getenv('DB_PORT', '3306')
+        self.database = os.getenv('DB_NAME', 'sistema_asistencia_qr')
+        self.user = os.getenv('DB_USER', 'admin')
+        self.password = os.getenv('DB_PASSWORD', 'Vikyvaleria.24')
         self.connection = None
     
     def connect(self) -> Optional[mysql.connector.MySQLConnection]:
@@ -30,21 +30,20 @@ class MySQLConnection:
                 init_command="SET time_zone = '-05:00'"
             )
             if self.connection.is_connected():
-                # 🔹 Fijar la zona horaria a Lima cada vez que se conecte
                 cursor = self.connection.cursor()
                 cursor.execute("SET time_zone = 'America/Lima'")
                 cursor.close()
-                print(f"✅ Conexión exitosa a MySQL en AWS RDS - Base de datos: {self.database}")
+                print(f"Conexión exitosa a MySQL en AWS RDS - Base de datos: {self.database}")
                 return self.connection
         except Error as e:
-            print(f"❌ Error al conectar a MySQL en AWS RDS: {e}")
+            print(f"Error al conectar a MySQL en AWS RDS: {e}")
             print(f"Credenciales usadas - Host: {self.host}:{self.port}, User: {self.user}, DB: {self.database}")
             return None
     
     def disconnect(self):
         if self.connection and self.connection.is_connected():
             self.connection.close()
-            print("🔒 Conexión a MySQL (AWS RDS) cerrada")
+            print("Conexión a MySQL (AWS RDS) cerrada")
     
     def get_connection(self) -> Optional[mysql.connector.MySQLConnection]:
         if not self.connection or not self.connection.is_connected():
@@ -63,7 +62,7 @@ class MySQLConnection:
             cursor.close()
             return result
         except Error as e:
-            print(f"⚠️ Error ejecutando query en AWS: {e}")
+            print(f"Error ejecutando query en AWS: {e}")
             return None
     
     def execute_update(self, query: str, params: tuple = None) -> bool:
@@ -78,7 +77,7 @@ class MySQLConnection:
             cursor.close()
             return True
         except Error as e:
-            print(f"⚠️ Error ejecutando update en AWS: {e}")
+            print(f"Error ejecutando update en AWS: {e}")
             connection.rollback()
             return False
     
@@ -95,12 +94,12 @@ class MySQLConnection:
             cursor.close()
             return last_id
         except Error as e:
-            print(f"⚠️ Error ejecutando insert en AWS: {e}")
+            print(f"Error ejecutando insert en AWS: {e}")
             connection.rollback()
             return None
 
 
-# --- Instancia global y función helper ---
+# Instancia global y función helper
 _db_instance = MySQLConnection()
 
 def get_connection() -> Optional[mysql.connector.MySQLConnection]:

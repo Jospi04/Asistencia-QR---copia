@@ -7,7 +7,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
-from apscheduler.schedulers.background import BackgroundScheduler  # ✅ Agregado
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
 # Importar infraestructura
 from src.infrastructure.mysql_connection import MySQLConnection
@@ -17,7 +18,7 @@ from src.infrastructure.repositories_mysql import (
     AsistenciaRepositoryMySQL,
     HorarioEstandarRepositoryMySQL,
     EscaneoTrackingRepositoryMySQL,
-    AdministradorRepository  # ✅ Agregado
+    AdministradorRepository
 )
 
 # Importar use cases
@@ -30,7 +31,7 @@ from src.use_cases.get_report import GetReportUseCase, minutos_a_hhmm
 from src.infrastructure.qr_generator import QRGenerator
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', '')
+app.secret_key = os.getenv('SECRET_KEY') or 'clave-secreta-temporal-desarrollo-cambiar-en-produccion'
 
 # Configuración de base de datos
 db_connection = MySQLConnection()
@@ -45,31 +46,33 @@ escaneo_repo = EscaneoTrackingRepositoryMySQL(db_connection)
 # Inicializar use cases
 register_employee_use_case = RegisterEmployeeUseCase(empleado_repo)
 mark_attendance_use_case = MarkAttendanceUseCase(empleado_repo, asistencia_repo, horario_repo, escaneo_repo)
-list_companies_use_case = ListCompaniesUseCase(empresa_repo)
+list_companies_use_case = ListCompaniesUseCase(empresa_repo,)
 get_report_use_case = GetReportUseCase(empleado_repo, asistencia_repo, empresa_repo)
 
 # Inicializar QR generator
 qr_generator = QRGenerator()
 
-# ✅ Programar job semanal
+# Programar job semanal
 scheduler = BackgroundScheduler()
 
 def job_reporte_semanal():
     """Job semanal que envía reportes a la dueña y a los empleados"""
-    print("📅 Iniciando job semanal...")
-    
-    # 1. Enviar reportes a la dueña (uno por empresa)
-    print("📧 Enviando reportes a la dueña...")
-    mark_attendance_use_case.generar_reporte_semanal()
-    
-    # 2. Enviar reportes individuales a los empleados
-    print("📧 Enviando reportes a los empleados...")
-    mark_attendance_use_case.enviar_reporte_individual_empleados()
-    
-    print("✅ Job semanal completado")
+    try:
+        print("Iniciando job semanal...")
+        
+        print("Enviando reportes a la dueña...")
+        mark_attendance_use_case.generar_reporte_semanal()
+        
+        print("Enviando reportes a los empleados...")
+        mark_attendance_use_case.enviar_reporte_individual_empleados()
+        
+        print("Job semanal completado")
+    except Exception as e:
+        print(f"Error en job semanal: {e}")
 
 scheduler.add_job(job_reporte_semanal, 'cron', day_of_week='mon', hour=8, minute=0)
 scheduler.start()
+atexit.register(lambda: scheduler.shutdown())
 
 def obtener_nombre_mes(numero_mes):
     """Obtiene el nombre del mes por su número"""
@@ -99,7 +102,6 @@ def admin_login():
         username = request.form['username']
         password = request.form['password']
         
-        # ✅ Obtener repositorio de administradores
         admin_repo = AdministradorRepository(db_connection)
         administrador = admin_repo.get_by_username(username)
         
@@ -133,7 +135,6 @@ def admin_add_employee():
             telefono = request.form.get('telefono', '')
             correo = request.form.get('correo', '')
             
-            # Registrar empleado
             empleado = register_employee_use_case.execute(
                 nombre=nombre,
                 empresa_id=empresa_id,
@@ -142,7 +143,6 @@ def admin_add_employee():
                 correo=correo
             )
             
-            # Generar código QR para el empleado
             empresa = empresa_repo.get_by_id(empresa_id)
             if empresa:
                 qr_path = qr_generator.generate_employee_qr(empleado.id, empresa.codigo_empresa)
@@ -158,7 +158,6 @@ def admin_add_employee():
         except Exception as e:
             flash(f'Error registrando empleado: {str(e)}', 'error')
     
-    # Obtener empresas para el formulario
     empresas = list_companies_use_case.execute()
     return render_template('admin_add_employee.html', empresas=empresas)
 
@@ -182,7 +181,6 @@ def admin_list_employees():
                          empresas=empresas, 
                          empresa_seleccionada=empresa)
 
-# Ruta para editar empleado (formulario)
 @app.route('/admin/edit_employee/<int:empleado_id>', methods=['GET', 'POST'])
 def edit_employee(empleado_id):
     if not session.get('admin_logged_in'):
@@ -195,14 +193,12 @@ def edit_employee(empleado_id):
     
     if request.method == 'POST':
         try:
-            # Actualizar datos del empleado
             empleado.nombre = request.form['nombre']
             empleado.empresa_id = int(request.form['empresa_id'])
             empleado.dni = request.form['dni']
             empleado.telefono = request.form.get('telefono', '')
             empleado.correo = request.form.get('correo', '')
             
-            # Guardar cambios
             empleado_repo.update(empleado)
             flash('Empleado actualizado con éxito', 'success')
             return redirect(url_for('admin_list_employees'))
@@ -210,11 +206,9 @@ def edit_employee(empleado_id):
         except Exception as e:
             flash(f'Error actualizando empleado: {str(e)}', 'error')
     
-    # Obtener empresas para el formulario
     empresas = list_companies_use_case.execute()
     return render_template('admin_edit_employee.html', empleado=empleado, empresas=empresas)
 
-# Ruta para activar/desactivar empleado (AJAX)
 @app.route('/admin/toggle_employee/<int:empleado_id>', methods=['POST'])
 def toggle_employee(empleado_id):
     if not session.get('admin_logged_in'):
@@ -225,7 +219,6 @@ def toggle_employee(empleado_id):
         if not empleado:
             return jsonify({'success': False, 'message': 'Empleado no encontrado'}), 404
         
-        # Alternar estado activo
         empleado.activo = not empleado.activo
         empleado_repo.update(empleado)
         
@@ -239,7 +232,6 @@ def toggle_employee(empleado_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
-# Ruta para eliminar empleado (AJAX) - ELIMINACIÓN COMPLETA
 @app.route('/admin/delete_employee/<int:empleado_id>', methods=['POST'])
 def delete_employee(empleado_id):
     if not session.get('admin_logged_in'):
@@ -252,7 +244,6 @@ def delete_employee(empleado_id):
         
         nombre_empleado = empleado.nombre
         
-        # Eliminar empleado COMPLETAMENTE de la base de datos
         empleado_repo.delete(empleado_id)
         
         return jsonify({
@@ -263,27 +254,22 @@ def delete_employee(empleado_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
-# Ruta para descargar QR de empleado
 @app.route('/admin/download_qr/<int:empleado_id>')
 def download_qr(empleado_id):
     try:
-        # Obtener empleado
         empleado = empleado_repo.get_by_id(empleado_id)
         if not empleado:
             flash('Empleado no encontrado', 'error')
             return redirect(url_for('admin_list_employees'))
         
-        # Obtener empresa
         empresa = empresa_repo.get_by_id(empleado.empresa_id)
         if not empresa:
             flash('Empresa no encontrada', 'error')
             return redirect(url_for('admin_list_employees'))
         
-        # Generar código QR
         qr_path = qr_generator.generate_employee_qr(empleado.id, empresa.codigo_empresa)
         
         if qr_path and os.path.exists(qr_path):
-            # Devolver el archivo como descarga
             return send_file(
                 qr_path,
                 mimetype='image/png',
@@ -298,7 +284,6 @@ def download_qr(empleado_id):
         flash(f'Error descargando QR: {str(e)}', 'error')
         return redirect(url_for('admin_list_employees'))
 
-# Rutas de escaneo
 @app.route('/scan')
 def scan_qr():
     return render_template('scan.html')
@@ -310,7 +295,6 @@ def api_scan_qr():
         codigo_qr = data.get('codigo_qr', '')
         ip_address = request.remote_addr
         
-        # Procesar asistencia
         resultado = mark_attendance_use_case.execute(codigo_qr, ip_address)
         
         return jsonify(resultado)
@@ -322,7 +306,6 @@ def api_scan_qr():
             "data": None
         })
 
-# Rutas de reportes
 @app.route('/reports')
 def reports():
      if not session.get('admin_logged_in'):
@@ -350,7 +333,7 @@ def api_monthly_report():
 
 @app.route('/api/reports/employee/<int:empleado_id>')
 def api_employee_report(empleado_id):
-    try:
+    try:    
         mes = request.args.get('mes', type=int, default=datetime.now().month)
         anio = request.args.get('anio', type=int, default=datetime.now().year)
         
@@ -360,7 +343,6 @@ def api_employee_report(empleado_id):
     except Exception as e:
         return jsonify({"error": f"Error generando reporte: {str(e)}"}), 500
 
-# Ruta para exportar reporte a Excel
 @app.route('/api/reports/export/excel')
 def export_report_excel():
     try:
@@ -372,23 +354,19 @@ def export_report_excel():
             flash('Empresa ID requerido', 'error')
             return redirect(url_for('reports'))
         
-        # Obtener empleados de la empresa
         empleados = empleado_repo.get_by_empresa_id(empresa_id)
         primer_dia = f"{anio}-{mes:02d}-01"
         ultimo_dia = f"{anio}-{mes:02d}-{calendar.monthrange(anio, mes)[1]}"
         
-        # Crear archivo Excel en memoria
         output = BytesIO()
         wb = Workbook()
         ws = wb.active
         ws.title = "Reporte Diario"
         
-        # Estilos
         header_font = Font(bold=True)
         header_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
         alignment_center = Alignment(horizontal="center", vertical="center")
         
-        # Estilo de bordes
         thin_border = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
@@ -399,17 +377,15 @@ def export_report_excel():
         fila_actual = 1
         
         for empleado in empleados:
-            # Título del empleado
-            ws.merge_cells(start_row=fila_actual, start_column=1, end_row=fila_actual, end_column=8)
+            ws.merge_cells(start_row=fila_actual, start_column=1, end_row=fila_actual, end_column=10)
             titulo_cell = ws.cell(row=fila_actual, column=1, value=f"EMPLEADO: {empleado.nombre.upper()}")
             titulo_cell.font = Font(bold=True, size=14)
             titulo_cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
             titulo_cell.alignment = Alignment(horizontal="center", vertical="center")
             fila_actual += 1
             
-            # Encabezados
-            headers = ['DÍA', 'ENTRADA_MAÑANA', 'SALIDA_MAÑANA', 'TOTAL_MAÑANA', 
-                      'ENTRADA_TARDE', 'SALIDA_TARDE', 'TOTAL_TARDE', 'TOTAL_DÍA']
+            headers = ['DIA', 'ENTRADA_MANANA', 'SALIDA_MANANA', 'TOTAL_MANANA', 
+                      'ENTRADA_TARDE', 'SALIDA_TARDE', 'TOTAL_TARDE', 'TOTAL_DIA', 'HORAS_NORMALES', 'HORAS_EXTRAS']
             for col, header in enumerate(headers, 1):
                 cell = ws.cell(row=fila_actual, column=col, value=header)
                 cell.font = header_font
@@ -418,27 +394,23 @@ def export_report_excel():
                 cell.border = thin_border
             fila_actual += 1
             
-            # Variables para totales del mes
             total_manana_minutos = 0
             total_tarde_minutos = 0
+            total_horas_extras_mes = 0  # CAMBIO 1: Agregar esta variable
             
-            # Generar todos los días del mes
             dias_del_mes = calendar.monthrange(anio, mes)[1]
             
             for dia in range(1, dias_del_mes + 1):
                 fecha = f"{anio}-{mes:02d}-{dia:02d}"
                 
-                # Buscar asistencia para ese día y empleado
                 asistencia = asistencia_repo.get_by_empleado_and_fecha(empleado.id, fecha)
                 
                 if asistencia:
-                    # Calcular totales
                     total_manana = ""
                     if asistencia.entrada_manana_real and asistencia.salida_manana_real:
                         minutos_manana = int((asistencia.salida_manana_real.hour * 60 + asistencia.salida_manana_real.minute) - 
                                            (asistencia.entrada_manana_real.hour * 60 + asistencia.entrada_manana_real.minute))
                         total_manana = minutos_a_hhmm(max(0, minutos_manana))
-                        # Sumar al total del mes
                         h, m = map(int, total_manana.split(":"))
                         total_manana_minutos += h * 60 + m
                     
@@ -447,11 +419,9 @@ def export_report_excel():
                         minutos_tarde = int((asistencia.salida_tarde_real.hour * 60 + asistencia.salida_tarde_real.minute) - 
                                           (asistencia.entrada_tarde_real.hour * 60 + asistencia.entrada_tarde_real.minute))
                         total_tarde = minutos_a_hhmm(max(0, minutos_tarde))
-                        # Sumar al total del mes
                         h, m = map(int, total_tarde.split(":"))
                         total_tarde_minutos += h * 60 + m
                     
-                    # Calcular total del día
                     total_dia_minutos = 0
                     if total_manana:
                         h, m = map(int, total_manana.split(":"))
@@ -461,7 +431,14 @@ def export_report_excel():
                         total_dia_minutos += h * 60 + m
                     total_dia = minutos_a_hhmm(total_dia_minutos)
                     
-                    # Agregar fila con datos
+                    minutos_normales_dia = min(total_dia_minutos, 8 * 60)
+                    minutos_extras_dia = max(0, total_dia_minutos - (8 * 60))
+                    
+                    total_horas_extras_mes += minutos_extras_dia  # CAMBIO 2: Sumar extras día por día
+                    
+                    horas_normales_dia = minutos_a_hhmm(minutos_normales_dia)
+                    horas_extras_dia = minutos_a_hhmm(minutos_extras_dia)
+                    
                     valores = [
                         dia,
                         str(asistencia.entrada_manana_real) if asistencia.entrada_manana_real else "",
@@ -470,58 +447,59 @@ def export_report_excel():
                         str(asistencia.entrada_tarde_real) if asistencia.entrada_tarde_real else "",
                         str(asistencia.salida_tarde_real) if asistencia.salida_tarde_real else "",
                         total_tarde,
-                        total_dia
+                        total_dia,
+                        horas_normales_dia,
+                        horas_extras_dia
                     ]
                 else:
-                    # Agregar fila vacía para días sin asistencia
-                    valores = [
-                        dia,
-                        "", "", "", "", "", "", ""
-                    ]
+                    valores = [dia, "", "", "", "", "", "", "", "", ""]
                 
-                # Agregar valores y aplicar bordes
                 for col, valor in enumerate(valores, 1):
                     cell = ws.cell(row=fila_actual, column=col, value=valor)
                     cell.border = thin_border
-                    if col == 1:  # Centrar día
+                    if col == 1:
                         cell.alignment = Alignment(horizontal="center")
                 
                 fila_actual += 1
             
-            # Fila de totales del mes
             total_manana_mes = minutos_a_hhmm(total_manana_minutos)
             total_tarde_mes = minutos_a_hhmm(total_tarde_minutos)
             total_dia_mes = minutos_a_hhmm(total_manana_minutos + total_tarde_minutos)
+
+            # CAMBIO 3: Usar la suma real de extras, no calcular con días del mes
+            total_minutos_mes = total_manana_minutos + total_tarde_minutos
+            minutos_normales_mes = total_minutos_mes - total_horas_extras_mes
+            minutos_extras_mes = total_horas_extras_mes
+
+            horas_normales_mes = minutos_a_hhmm(minutos_normales_mes)
+            horas_extras_mes = minutos_a_hhmm(minutos_extras_mes)
             
-            # Agregar fila de totales
             valores_totales = [
                 "TOTAL MES",
                 "", "", total_manana_mes,
                 "", "", total_tarde_mes,
-                total_dia_mes
+                total_dia_mes,
+                horas_normales_mes,
+                horas_extras_mes
             ]
             for col, valor in enumerate(valores_totales, 1):
                 cell = ws.cell(row=fila_actual, column=col, value=valor)
                 cell.font = Font(bold=True)
                 cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
                 cell.border = thin_border
-                if col == 1:  # Centrar "TOTAL MES"
+                if col == 1:
                     cell.alignment = Alignment(horizontal="center")
             fila_actual += 1
             
-            # Agregar espacio entre empleados
             fila_actual += 1
         
-        # Ajustar ancho de columnas
-        column_widths = [8, 15, 15, 15, 15, 15, 15, 15]
+        column_widths = [8, 15, 15, 15, 15, 15, 15, 15, 15, 15]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
         
-        # Guardar el workbook en el buffer
         wb.save(output)
         output.seek(0)
         
-        # Preparar nombre de archivo
         nombre_empresa = empresa_repo.get_by_id(empresa_id).nombre.replace(' ', '_') if empresa_repo.get_by_id(empresa_id) else 'empresa'
         nombre_archivo = f"reporte_diario_{nombre_empresa}_{mes}_{anio}.xlsx"
         
@@ -536,7 +514,6 @@ def export_report_excel():
         flash(f'Error generando reporte Excel: {str(e)}', 'error')
         return redirect(url_for('reports'))
 
-# Ruta para generar QR de empleado existente
 @app.route('/admin/generate_qr/<int:empleado_id>')
 def generate_employee_qr(empleado_id):
     if not session.get('admin_logged_in'):
@@ -553,7 +530,6 @@ def generate_employee_qr(empleado_id):
             flash('Empresa no encontrada', 'error')
             return redirect(url_for('admin_list_employees'))
         
-        # Generar QR
         qr_path = qr_generator.generate_employee_qr(empleado.id, empresa.codigo_empresa)
         if qr_path:
             flash('Código QR generado con éxito.', 'success')
@@ -565,7 +541,6 @@ def generate_employee_qr(empleado_id):
     
     return redirect(url_for('admin_list_employees'))
 
-# Error handlers
 @app.errorhandler(404)
 def not_found(error):
     return render_template('error.html', error_message="Página no encontrada"), 404
