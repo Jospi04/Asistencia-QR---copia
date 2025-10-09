@@ -250,7 +250,7 @@ class GetReportUseCase:
         
         for dia in range(1, ultimo_dia + 1):
             fecha = date(anio, mes, dia)
-            if fecha.weekday() < 5:
+            if fecha.weekday() < 6:
                 dias_laborables += 1
         
         return dias_laborables
