@@ -342,6 +342,61 @@ def api_employee_report(empleado_id):
         
     except Exception as e:
         return jsonify({"error": f"Error generando reporte: {str(e)}"}), 500
+    
+@app.route('/api/empleados')
+def api_get_empleados():
+    """Obtiene empleados de una empresa"""
+    try:
+        empresa_id = request.args.get('empresa_id', type=int)
+        
+        if not empresa_id:
+            return jsonify({"error": "empresa_id requerido"}), 400
+        
+        empleados = empleado_repo.get_by_empresa_id(empresa_id)
+        
+        # Convertir a diccionario
+        empleados_data = []
+        for emp in empleados:
+            empleados_data.append({
+                "id": emp.id,
+                "nombre": emp.nombre,
+                "dni": emp.dni,
+                "empresa_id": emp.empresa_id,
+                "activo": emp.activo
+            })
+        
+        return jsonify(empleados_data)
+        
+    except Exception as e:
+        print(f"Error en api_get_empleados: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+
+@app.route('/api/asistencias/<int:empleado_id>')
+def api_get_asistencia_empleado(empleado_id):
+    """Obtiene asistencia de un empleado en una fecha específica"""
+    try:
+        fecha = request.args.get('fecha')
+        
+        if not fecha:
+            return jsonify({"error": "Fecha requerida"}), 400
+        
+        asistencia = asistencia_repo.get_by_empleado_and_fecha(empleado_id, fecha)
+        
+        if asistencia:
+            return jsonify({
+                "fecha": str(asistencia.fecha),
+                "entrada_manana_real": str(asistencia.entrada_manana_real) if asistencia.entrada_manana_real else None,
+                "salida_manana_real": str(asistencia.salida_manana_real) if asistencia.salida_manana_real else None,
+                "entrada_tarde_real": str(asistencia.entrada_tarde_real) if asistencia.entrada_tarde_real else None,
+                "salida_tarde_real": str(asistencia.salida_tarde_real) if asistencia.salida_tarde_real else None
+            })
+        else:
+            return jsonify({}), 200
+            
+    except Exception as e:
+        print(f"Error en api_get_asistencia_empleado: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/reports/export/excel')
 def export_report_excel():

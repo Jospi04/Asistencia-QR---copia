@@ -3,13 +3,55 @@
 {% block title %}Reportes Asistencia{% endblock %}
 
 {% block content %}
+<style>
+.registro-table {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.registro-table th {
+    background: #343A40;
+    color: white;
+    padding: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.registro-table td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.entrada-manana { background-color: #fff3cd; }
+.salida-manana { background-color: #fff3cd; }
+.entrada-tarde { background-color: #cfe2ff; }
+.salida-tarde { background-color: #cfe2ff; }
+
+.employee-name {
+    font-weight: 600;
+    text-align: left !important;
+}
+
+.fecha-actual {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #0d6efd;
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
             <div class="header-gradient py-4 mb-4 rounded">
                 <div class="container">
-                    <h1 class="mb-0"><i class="fas fa-chart-bar me-3"></i>Reportes de Asistencia</h1>
-                    <p class="mb-0">Generación y visualización de reportes mensuales por empresa</p>
+                    <div>
+                        <h1 class="mb-0"><i class="fas fa-chart-bar me-3"></i>Reportes de Asistencia</h1>
+                        <p class="mb-0">Generación y visualización de reportes mensuales por empresa</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -67,6 +109,12 @@
                                     <i class="fas fa-search me-2"></i>Generar
                                 </button>
                             </div>
+                            
+                            <div class="col-md-12 d-flex justify-content-end mt-3">
+                                <button type="button" class="btn btn-success" onclick="exportarExcel()" id="btn-exportar" style="display: none;">
+                                    <i class="fas fa-file-excel me-2"></i>Exportar a Excel
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -90,12 +138,18 @@
 
 {% block scripts %}
 <script>
-// Variables para almacenar los parámetros actuales del reporte
+// Variables globales
 let currentReportParams = {
     empresa_id: null,
     mes: null,
     anio: null
 };
+
+// Obtener fecha actual
+const fechaHoy = new Date();
+const diaHoy = fechaHoy.getDate();
+const mesHoy = fechaHoy.getMonth() + 1;
+const anioHoy = fechaHoy.getFullYear();
 
 document.getElementById('report-form').addEventListener('submit', function(e) {
     e.preventDefault();
@@ -109,179 +163,158 @@ document.getElementById('report-form').addEventListener('submit', function(e) {
         return;
     }
     
-    // Guardar parámetros actuales
+    // Guardar parámetros
     currentReportParams = {
         empresa_id: empresaId,
         mes: mes,
         anio: anio
     };
     
-    // Mostrar indicador de carga
+    // Mostrar botón de exportar
+    document.getElementById('btn-exportar').style.display = 'block';
+    
+    // Cargar reporte
+    cargarReporteDiario(empresaId, mes, anio);
+});
+
+function cargarReporteDiario(empresaId, mes, anio) {
     const reportContainer = document.getElementById('report-container');
+    
     reportContainer.innerHTML = `
         <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p class="mt-2">Generando reporte...</p>
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Cargando registros del día...</p>
         </div>
     `;
     
-    // Obtener reporte
-    fetch(`/api/reports/monthly?empresa_id=${empresaId}&mes=${mes}&anio=${anio}`)
-        .then(response => response.json())
-        .then(data => {
-            mostrarReporte(data);
+    // Obtener empleados de la empresa
+    fetch(`/api/empleados?empresa_id=${empresaId}`)
+        .then(res => res.json())
+        .then(empleados => {
+            mostrarRegistrosDiarios(empleados, empresaId);
         })
         .catch(error => {
             console.error('Error:', error);
             reportContainer.innerHTML = `
                 <div class="alert alert-danger">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    Error al generar el reporte. Por favor intente nuevamente.
+                    Error al cargar los registros
                 </div>
             `;
         });
-});
+}
 
-function mostrarReporte(data) {
+function mostrarRegistrosDiarios(empleados, empresaId) {
     const reportContainer = document.getElementById('report-container');
     
-    if (data.error) {
-        reportContainer.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-triangle me-2"></i>
-                ${data.error}
-            </div>
-        `;
-        return;
-    }
+    // Obtener nombre de la empresa
+    const empresaSelect = document.getElementById('empresa_id');
+    const empresaNombre = empresaSelect.options[empresaSelect.selectedIndex].text;
     
-    // Crear contenido del reporte
-    let empleadosHTML = '';
-    if (data.empleados && data.empleados.length > 0) {
-        empleadosHTML = `
-            <table class="table table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Nombre</th>
-                        <th>DNI</th>
-                        <th>Asistencias</th>
-                        <th>Faltas</th>
-                        <th>Horas Normales</th>
-                        <th>Horas Extras</th>
-                        <th>% Asistencia</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${data.empleados.map(empleado => `
-                        <tr>
-                            <td>${empleado.nombre || ''}</td>
-                            <td>${empleado.dni || ''}</td>
-                            <td>${empleado.asistencias || 0}</td>
-                            <td>${empleado.faltas || 0}</td>
-                            <td>${empleado.horas_normales || 0}</td>
-                            <td>${empleado.horas_extras || 0}</td>
-                            <td>${empleado.porcentaje_asistencia || 0}%</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        `;
-    } else {
-        empleadosHTML = '<p class="text-center">No hay datos de empleados disponibles</p>';
-    }
+    // Formatear fecha actual
+    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const fechaFormateada = `${diaHoy} de ${meses[mesHoy - 1]} del ${anioHoy}`;
     
-    reportContainer.innerHTML = `
+    let html = `
         <div class="card">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <div class="card-header bg-dark text-white">
                 <h5 class="mb-0">
-                    <i class="fas fa-file-alt me-2"></i>
-                    Reporte Mensual - ${data.empresa ? data.empresa.nombre : 'Empresa'}
+                    <i class="fas fa-calendar-day me-2"></i>
+                    Registros de Hoy - ${empresaNombre}
                 </h5>
-                <div>
-                    <button class="btn btn-light btn-sm me-2" onclick="exportarExcel()">
-                        <i class="fas fa-file-excel me-1"></i>Exportar Excel
-                    </button>
-                    <button class="btn btn-light btn-sm" onclick="exportarPDF()">
-                        <i class="fas fa-file-pdf me-1"></i>Exportar PDF
-                    </button>
-                </div>
             </div>
             <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-building me-2"></i>Empresa</h6>
-                        <p class="mb-0">${data.empresa ? data.empresa.nombre : 'No especificada'}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6><i class="fas fa-calendar me-2"></i>Período</h6>
-                        <p class="mb-0">Mes: ${data.periodo ? data.periodo.mes : ''} ${data.periodo ? data.periodo.anio : ''}</p>
-                        <p class="mb-0">Del: ${data.periodo ? data.periodo.primer_dia : ''} al ${data.periodo ? data.periodo.ultimo_dia : ''}</p>
-                    </div>
+                <div class="fecha-actual">
+                    <h6 class="mb-0">
+                        <i class="fas fa-calendar me-2"></i>
+                        Día ${fechaFormateada}
+                    </h6>
                 </div>
                 
-                <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <div class="card bg-primary text-white text-center">
-                            <div class="card-body">
-                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_empleados : 0}</h3>
-                                <p class="card-text mb-0">Empleados</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-success text-white text-center">
-                            <div class="card-body">
-                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_horas_normales : 0}</h3>
-                                <p class="card-text mb-0">Horas Normales</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-warning text-dark text-center">
-                            <div class="card-body">
-                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_horas_extras : 0}</h3>
-                                <p class="card-text mb-0">Horas Extras</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-danger text-white text-center">
-                            <div class="card-body">
-                                <h3 class="card-title mb-0">${data.totales ? data.totales.total_faltas : 0}</h3>
-                                <p class="card-text mb-0">Faltas</p>
-                            </div>
-                        </div>
-                    </div>
+                <div class="table-responsive">
+                    <table class="table registro-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th class="entrada-manana">ENTRADA MAÑANA</th>
+                                <th class="salida-manana">SALIDA MAÑANA</th>
+                                <th class="entrada-tarde">ENTRADA TARDE</th>
+                                <th class="salida-tarde">SALIDA TARDE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-registros">
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner-border spinner-border-sm"></div>
+                                    Cargando registros...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
-                
-                <h6><i class="fas fa-users me-2"></i>Detalle por Empleado</h6>
-                ${empleadosHTML}
-            </div>
-            <div class="card-footer text-muted">
-                <small>Generado el: ${new Date().toLocaleString('es-ES')}</small>
             </div>
         </div>
     `;
+    
+    reportContainer.innerHTML = html;
+    
+    // Cargar asistencias del día actual
+    cargarAsistenciasDelDia(empleados);
+}
+
+async function cargarAsistenciasDelDia(empleados) {
+    const tbody = document.getElementById('tabla-registros');
+    const fechaHoy = `${anioHoy}-${String(mesHoy).padStart(2, '0')}-${String(diaHoy).padStart(2, '0')}`;
+    
+    let html = '';
+    let hayRegistros = false;
+    
+    for (const empleado of empleados) {
+        try {
+            // Consultar asistencia del empleado para hoy
+            const response = await fetch(`/api/asistencias/${empleado.id}?fecha=${fechaHoy}`);
+            const asistencia = await response.json();
+            
+            if (asistencia && asistencia.fecha) {
+                hayRegistros = true;
+                html += `
+                    <tr>
+                        <td class="employee-name">${empleado.nombre}</td>
+                        <td class="entrada-manana">${asistencia.entrada_manana_real || '-'}</td>
+                        <td class="salida-manana">${asistencia.salida_manana_real || '-'}</td>
+                        <td class="entrada-tarde">${asistencia.entrada_tarde_real || '-'}</td>
+                        <td class="salida-tarde">${asistencia.salida_tarde_real || '-'}</td>
+                    </tr>
+                `;
+            }
+        } catch (error) {
+            console.error(`Error cargando asistencia de ${empleado.nombre}:`, error);
+        }
+    }
+    
+    if (!hayRegistros) {
+        html = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay registros para el día de hoy
+                </td>
+            </tr>
+        `;
+    }
+    
+    tbody.innerHTML = html;
 }
 
 function exportarExcel() {
-    // Verificar que haya parámetros de reporte guardados
     if (!currentReportParams.empresa_id || !currentReportParams.mes || !currentReportParams.anio) {
-        alert('Por favor genere un reporte primero antes de exportar');
+        alert('Por favor genere un reporte primero');
         return;
     }
     
-    // Construir URL de exportación
     const url = `/api/reports/export/excel?empresa_id=${currentReportParams.empresa_id}&mes=${currentReportParams.mes}&anio=${currentReportParams.anio}`;
-    
-    // Abrir en nueva pestaña para descargar
     window.open(url, '_blank');
-}
-
-function exportarPDF() {
-    alert('Funcionalidad de exportación a PDF en desarrollo');
 }
 </script>
 {% endblock %}
