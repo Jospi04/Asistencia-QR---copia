@@ -10,7 +10,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
 from apscheduler.schedulers.background import BackgroundScheduler
-from threading import Thread
+from threading import Thread # 👈 NECESARIO: Importamos threading
 import atexit
 
 # Importar infraestructura
@@ -379,7 +379,6 @@ def api_get_empleados():
     except Exception as e:
         print(f"Error en api_get_empleados: {e}")
         return jsonify({"error": str(e)}), 500
-    
 
 @app.route('/api/asistencias/<int:empleado_id>')
 def api_get_asistencia_empleado(empleado_id):
