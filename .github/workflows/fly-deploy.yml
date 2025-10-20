@@ -15,4 +15,4 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: flyctl deploy --remote-only
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_API_TOKEN: ${{ fm2_lJPECAAAAAAACidBxBApW/NY043eRTTXznmc546YwrVodHRwczovL2FwaS5mbHkuaW8vdjGUAJLOABOmrx8Lk7lodHRwczovL2FwaS5mbHkuaW8vYWFhL3YxxDwHTRUssN91LT6cX4I+tK9Wpn1RY+P/CKG3D/3uz37x1wuzwdk7znxfvVsiHNjMaTUCRujtI5Mp7GzZ30zEToNpCrwzftLnvKvSgsIe2ypQOhdOZGguDpZLbK5+Y3rrw5SYlJxvF+XelaEvTHjszw3Ykh9sIbVZuyzDHljBk1+67j/xGDEkk82KvMPdbA2SlAORgc4AnlJlHwWRgqdidWlsZGVyH6J3Zx8BxCAo2Es3FvgaCb9Dx6zgp73Js0pVql5Q9tRfC0PzgfMd4Q== }}
