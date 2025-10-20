@@ -13,19 +13,12 @@ primary_region = 'gru'
   min_machines_running = 0
   processes = ['app']
 
-# 👇 AÑADIR/MANTENER LA CONFIGURACIÓN DE PROCESOS
+# Configuración del proceso de Job Externo
 [processes]
-  app = "python3 app.py" # O tu comando de inicio web (Gunicorn)
-  worker = "python3 src/jobs/run_weekly_report.py" # Comando para el Job Externo
+  app = "python3 app.py" # Proceso web principal
+  worker = "python3 src/jobs/run_weekly_report.py" # Proceso del cron job
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-
-# 👇 AÑADIR LA CONFIGURACIÓN DE LA MÁQUINA WORKER
-[[machines]]
-  name = "weekly-cron-job"
-  schedule = "0 8 * * 1" # Lunes a las 8:00 AM hora de la región principal (gru)
-  processes = ["worker"]
-  region = "gru" # Ejecutar solo en una región
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
