@@ -1,7 +1,4 @@
-# fly.toml app configuration file generated for asistencia-qr-copia-winter-river-2953 on 2025-09-27T22:32:11-05:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
+# fly.toml
 
 app = 'asistencia-qr-copia-winter-river-2953'
 primary_region = 'gru'
@@ -9,41 +6,26 @@ primary_region = 'gru'
 [build]
 
 [http_service]
-  internal_port = 8080
-  force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ['app']
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
 
-[[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-# fly.toml
-
-# ... (El resto de tu configuración es la misma: [http_service], [[vm]], etc.)
-
-[[statics]]
-  guest_path = "/app/src/jobs" # Asegura que la carpeta jobs esté accesible
-
-# 👇 AÑADIR ESTA SECCIÓN PARA EL CRON JOB
-[[vm]]
-  processes = ["worker"] # Este worker se encargará de ejecutar el cron
-  cpu_kind = "shared"
-  cpus = 1
-  memory = "256mb" # Suficiente memoria para el worker
-
+# 👇 AÑADIR/MANTENER LA CONFIGURACIÓN DE PROCESOS
 [processes]
-  # Proceso principal web (ya lo tienes, solo para referencia)
-  app = "gunicorn app:app -c gunicorn.conf.py" 
+  app = "python3 app.py" # O tu comando de inicio web (Gunicorn)
+  worker = "python3 src/jobs/run_weekly_report.py" # Comando para el Job Externo
 
-  # 👇 PROCESO WORKER CRON
-  # Usamos el comando "cron" de Linux para programar la ejecución
-  worker = "/usr/bin/python3 /app/src/jobs/run_weekly_report.py"
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
 
+# 👇 AÑADIR LA CONFIGURACIÓN DE LA MÁQUINA WORKER
 [[machines]]
-  name = "cron-job"
-  schedule = "0 8 * * 1" # Lunes a las 8:00 AM (0 minutos, hora 8, cualquier día/mes, día 1 de la semana)
+  name = "weekly-cron-job"
+  schedule = "0 8 * * 1" # Lunes a las 8:00 AM hora de la región principal (gru)
   processes = ["worker"]
   region = "gru" # Ejecutar solo en una región
