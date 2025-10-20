@@ -2,12 +2,15 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 import os
 from datetime import datetime
 import pandas as pd
+from dotenv import load_dotenv
+load_dotenv()
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
 from apscheduler.schedulers.background import BackgroundScheduler
+from threading import Thread
 import atexit
 
 # Importar infraestructura
@@ -36,6 +39,10 @@ app.secret_key = os.getenv('SECRET_KEY') or 'clave-secreta-temporal-desarrollo-c
 # Configuración de base de datos
 db_connection = MySQLConnection()
 
+EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA') 
+if not EMAIL_EMPRESA_ADMIN:
+    print("❌ ADVERTENCIA: Variable EMAIL_EMPRESA no encontrada en .env.")
+
 # Inicializar repositorios
 empresa_repo = EmpresaRepositoryMySQL(db_connection)
 empleado_repo = EmpleadoRepositoryMySQL(db_connection)
@@ -45,34 +52,37 @@ escaneo_repo = EscaneoTrackingRepositoryMySQL(db_connection)
 
 # Inicializar use cases
 register_employee_use_case = RegisterEmployeeUseCase(empleado_repo)
-mark_attendance_use_case = MarkAttendanceUseCase(empleado_repo, asistencia_repo, horario_repo, escaneo_repo)
+mark_attendance_use_case = MarkAttendanceUseCase(empleado_repo, asistencia_repo, horario_repo, escaneo_repo, empresa_repo, EMAIL_EMPRESA_ADMIN)
 list_companies_use_case = ListCompaniesUseCase(empresa_repo,)
 get_report_use_case = GetReportUseCase(empleado_repo, asistencia_repo, empresa_repo)
 
 # Inicializar QR generator
 qr_generator = QRGenerator()
 
-# Programar job semanal
-scheduler = BackgroundScheduler()
-
 def job_reporte_semanal():
     """Job semanal que envía reportes a la dueña y a los empleados"""
     try:
-        print("Iniciando job semanal...")
+        print("=" * 70)
+        print("🚀 JOB SEMANAL INICIADO")
+        print(f"⏰ Hora servidor: {datetime.now()}")
+        print("=" * 70)
         
-        print("Enviando reportes a la dueña...")
+        print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS (Semanal) a la jefa...")
         mark_attendance_use_case.generar_reporte_semanal()
+        print("✅ Reportes consolidados a la jefa enviados correctamente\n")
         
-        print("Enviando reportes a los empleados...")
+        print("📧 PASO 2: Enviando reportes INDIVIDUALES (Semanal) a empleados...")
         mark_attendance_use_case.enviar_reporte_individual_empleados()
+        print("✅ Reportes individuales a empleados enviados correctamente\n")
         
-        print("Job semanal completado")
+        print("🎉 JOB SEMANAL COMPLETADO EXITOSAMENTE")
+        print("=" * 70)
     except Exception as e:
-        print(f"Error en job semanal: {e}")
-
-scheduler.add_job(job_reporte_semanal, 'cron', day_of_week='mon', hour=8, minute=0)
-scheduler.start()
-atexit.register(lambda: scheduler.shutdown())
+        print("=" * 70)
+        print(f"❌ ERROR en Job Semanal: {e}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 70)
 
 def obtener_nombre_mes(numero_mes):
     """Obtiene el nombre del mes por su número"""
@@ -309,7 +319,6 @@ def api_scan_qr():
 @app.route('/reports')
 def reports():
      if not session.get('admin_logged_in'):
-        flash('Debes iniciar sesión para acceder a los reportes', 'error')
         return redirect(url_for('admin_login'))
      
      empresas = list_companies_use_case.execute()
@@ -451,7 +460,7 @@ def export_report_excel():
             
             total_manana_minutos = 0
             total_tarde_minutos = 0
-            total_horas_extras_mes = 0  # CAMBIO 1: Agregar esta variable
+            total_horas_extras_mes = 0
             
             dias_del_mes = calendar.monthrange(anio, mes)[1]
             
@@ -489,7 +498,7 @@ def export_report_excel():
                     minutos_normales_dia = min(total_dia_minutos, 8 * 60)
                     minutos_extras_dia = max(0, total_dia_minutos - (8 * 60))
                     
-                    total_horas_extras_mes += minutos_extras_dia  # CAMBIO 2: Sumar extras día por día
+                    total_horas_extras_mes += minutos_extras_dia
                     
                     horas_normales_dia = minutos_a_hhmm(minutos_normales_dia)
                     horas_extras_dia = minutos_a_hhmm(minutos_extras_dia)
@@ -521,7 +530,6 @@ def export_report_excel():
             total_tarde_mes = minutos_a_hhmm(total_tarde_minutos)
             total_dia_mes = minutos_a_hhmm(total_manana_minutos + total_tarde_minutos)
 
-            # CAMBIO 3: Usar la suma real de extras, no calcular con días del mes
             total_minutos_mes = total_manana_minutos + total_tarde_minutos
             minutos_normales_mes = total_minutos_mes - total_horas_extras_mes
             minutos_extras_mes = total_horas_extras_mes
@@ -604,5 +612,48 @@ def not_found(error):
 def internal_error(error):
     return render_template('error.html', error_message="Error interno del servidor"), 500
 
+
+def start_scheduler():
+    """Función para inicializar y arrancar el scheduler en un hilo seguro."""
+    try:
+        scheduler = BackgroundScheduler()
+        
+        # 1. Programar la tarea de PRUEBA (Cada 2 minutos)
+        scheduler.add_job(
+            job_reporte_semanal, 
+            trigger='interval', 
+            minutes=2,
+        )
+        
+        # 2. Iniciar el scheduler
+        scheduler.start()
+        print("✅ Scheduler iniciado en HILO DEDICADO.")
+        
+        # 3. Registrar el cierre limpio (Es vital para contenedores)
+        atexit.register(lambda: scheduler.shutdown(wait=False))
+        
+    except Exception as e:
+        print(f"❌ ERROR al iniciar el Scheduler en el hilo: {e}")
+        import traceback
+        traceback.print_exc()
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    
+    print("=" * 70)
+    print("🚀 INICIANDO APLICACIÓN")
+    print("=" * 70)
+    
+    # ⚠️ FIX: Iniciar el scheduler en un hilo separado ANTES de app.run()
+    scheduler_thread = Thread(target=start_scheduler)
+    scheduler_thread.start()
+    
+    if EMAIL_EMPRESA_ADMIN:
+        print(f"📧 Email admin: {EMAIL_EMPRESA_ADMIN}")
+    else:
+        print("⚠️  EMAIL_EMPRESA no configurado")
+    
+    print("=" * 70)
+    print("🌐 Iniciando servidor Flask...\n")
+    
+    # Iniciar Flask (Ahora no bloquea el hilo del scheduler)
+    app.run(debug=False, host='0.0.0.0', port=8080)

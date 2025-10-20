@@ -1,7 +1,6 @@
 from datetime import datetime, time
 from typing import Optional
 
-
 class Empresa:
     def __init__(self, id: int = None, nombre: str = "", codigo_empresa: str = ""):
         self.id = id
@@ -9,7 +8,6 @@ class Empresa:
         self.codigo_empresa = codigo_empresa
         self.created_at: Optional[datetime] = None
         self.updated_at: Optional[datetime] = None
-
 
 class Empleado:
     def __init__(self, id: int = None, empresa_id: int = None, nombre: str = "", 
@@ -24,7 +22,6 @@ class Empleado:
         self.correo = correo
         self.activo = activo
         self.fecha_registro: Optional[datetime] = None
-
 
 class HorarioEstandar:
     def __init__(self, id: int = None, empresa_id: int = None,
@@ -70,7 +67,6 @@ class Asistencia:
         self.created_at: Optional[datetime] = None
         self.updated_at: Optional[datetime] = None
 
-
 class Administrador:
     def __init__(self, id: int = None, empresa_id: int = None, nombre: str = "",
                  usuario: str = "", password_hash: str = "", telefono: str = "",
@@ -86,7 +82,6 @@ class Administrador:
         self.activo = activo
         self.created_at: Optional[datetime] = None
 
-
 class ConfigAlertas:
     def __init__(self, id: int = None, empresa_id: int = None,
                  numero_faltas_para_alerta: int = 4,
@@ -98,7 +93,6 @@ class ConfigAlertas:
         self.mensaje_whatsapp_falta = mensaje_whatsapp_falta
         self.mensaje_whatsapp_admin = mensaje_whatsapp_admin
         self.activo = activo
-
 
 class EscaneoTracking:
     def __init__(self, id: int = None, codigo_qr: str = "", ip_address: str = ""):

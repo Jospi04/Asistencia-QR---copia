@@ -5,7 +5,8 @@ from src.infrastructure.email_service import EmailService
 from src.domain.entities import Empleado, Asistencia
 from src.domain.repositories import (
     EmpleadoRepository, 
-    AsistenciaRepository, 
+    AsistenciaRepository,
+    EmpresaRepository, 
     HorarioEstandarRepository,
     EscaneoTrackingRepository
 )
@@ -18,12 +19,16 @@ class MarkAttendanceUseCase:
                  empleado_repository: EmpleadoRepository,
                  asistencia_repository: AsistenciaRepository,
                  horario_repository: HorarioEstandarRepository,
-                 escaneo_repository: EscaneoTrackingRepository):
+                 escaneo_repository: EscaneoTrackingRepository,
+                 empresa_repository: EmpresaRepository,
+                 email_admin: str):
         self.empleado_repository = empleado_repository
         self.asistencia_repository = asistencia_repository
         self.horario_repository = horario_repository
         self.escaneo_repository = escaneo_repository
+        self.empresa_repository = empresa_repository
         self.email_service = EmailService()
+        self.email_admin = email_admin
     
     def execute(self, codigo_qr: str, ip_address: str = "") -> dict:
         # Verificar si hay escaneo reciente
@@ -276,28 +281,29 @@ class MarkAttendanceUseCase:
         except Exception as e:
             print(f"Error obteniendo configuración de alertas: {e}")
             return None
-
-    def _obtener_email_admin(self, empresa_id: int):
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-            query = """
-                SELECT correo
-                FROM ADMINISTRADORES
-                WHERE id = %s
-                LIMIT 1
-            """
-            cursor.execute(query, (empresa_id,))
-            resultado = cursor.fetchone()
-            cursor.close()
-            conn.close()
+    def _obtener_email_admin(self, empresa_id: int) -> str:
+     # """Solucion fututra para multiples admins por empresa"""
+        # try:
+        #     conn = get_connection()
+        #     cursor = conn.cursor()
+        #     query = """
+        #         SELECT correo
+        #         FROM ADMINISTRADORES
+        #         WHERE empresa_id = %s
+        #         AND rol = 'superadmin'
+        #         LIMIT 1
+        #     """
+        #     cursor.execute(query, (empresa_id,))
+        #     resultado = cursor.fetchone()
+        #     cursor.close()
+        #     conn.close()
             
-            if resultado:
-                return resultado[0]
-            return None
-        except Exception as e:
-            print(f"Error obteniendo correo admin: {e}")
-            return None
+        #     if resultado:
+        #         return resultado[0]
+        #     return self.email_admin  # Retorno correo por defecto
+        # except Exception as e:
+        #     print(f"Error obteniendo correo admin: {e}")
+            return self.email_admin
 
     def _contar_faltas_recientes(self, empleado_id: int, dias: int = 30) -> int:
         try:

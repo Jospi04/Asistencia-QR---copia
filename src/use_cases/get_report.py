@@ -78,6 +78,8 @@ class GetReportUseCase:
                 "retardos_tarde": stats["retardos_tarde"],
                 "porcentaje_asistencia": stats["porcentaje_asistencia"]
             })
+            total_minutos_normales += int(stats["horas_normales"] * 60)
+            total_minutos_extras += int(stats["horas_extras"] * 60)
             
             totales["total_horas_normales"] += stats["horas_normales"]
             totales["total_horas_extras"] += stats["horas_extras"]
@@ -90,8 +92,11 @@ class GetReportUseCase:
             totales["total_retardos_tarde"] += stats["retardos_tarde"]
         
         totales["dias_laborables"] = self._contar_dias_laborables(mes, anio)
-        totales["total_horas_normales"] = round(totales["total_horas_normales"], 2)
-        totales["total_horas_extras"] = round(totales["total_horas_extras"], 2)
+        totales["total_horas_normales"] = minutos_a_hhmm(total_minutos_normales)
+        totales["total_horas_extras"] = minutos_a_hhmm(total_minutos_extras)
+        # redondeo en 2 decimales
+        # totales["total_horas_normales"] = round(totales["total_horas_normales"], 2)
+        # totales["total_horas_extras"] = round(totales["total_horas_extras"], 2)
         
         return {
             "empresa": self._get_empresa_info(empresa_id),
