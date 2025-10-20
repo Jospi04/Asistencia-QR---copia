@@ -9,9 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
-from apscheduler.schedulers.background import BackgroundScheduler
-from threading import Thread # 👈 NECESARIO: Importamos threading
-import atexit
+# ELIMINADAS: Todas las importaciones de apscheduler y threading
 
 # Importar infraestructura
 from src.infrastructure.mysql_connection import MySQLConnection
@@ -59,30 +57,8 @@ get_report_use_case = GetReportUseCase(empleado_repo, asistencia_repo, empresa_r
 # Inicializar QR generator
 qr_generator = QRGenerator()
 
-def job_reporte_semanal():
-    """Job semanal que envía reportes a la dueña y a los empleados"""
-    try:
-        print("=" * 70)
-        print("🚀 JOB SEMANAL INICIADO")
-        print(f"⏰ Hora servidor: {datetime.now()}")
-        print("=" * 70)
-        
-        print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS (Semanal) a la jefa...")
-        mark_attendance_use_case.generar_reporte_semanal()
-        print("✅ Reportes consolidados a la jefa enviados correctamente\n")
-        
-        print("📧 PASO 2: Enviando reportes INDIVIDUALES (Semanal) a empleados...")
-        mark_attendance_use_case.enviar_reporte_individual_empleados()
-        print("✅ Reportes individuales a empleados enviados correctamente\n")
-        
-        print("🎉 JOB SEMANAL COMPLETADO EXITOSAMENTE")
-        print("=" * 70)
-    except Exception as e:
-        print("=" * 70)
-        print(f"❌ ERROR en Job Semanal: {e}")
-        import traceback
-        traceback.print_exc()
-        print("=" * 70)
+# Eliminada toda la lógica del scheduler interno y la función job_reporte_semanal
+
 
 def obtener_nombre_mes(numero_mes):
     """Obtiene el nombre del mes por su número"""
@@ -612,55 +588,11 @@ def internal_error(error):
     return render_template('error.html', error_message="Error interno del servidor"), 500
 
 
-def start_scheduler():
-    """Función para inicializar y arrancar el scheduler en un hilo seguro."""
-    try:
-        scheduler = BackgroundScheduler()
-        
-        # 1. Programar la tarea de PRUEBA (Cada 2 minutos)
-        scheduler.add_job(
-            job_reporte_semanal, 
-            trigger='interval', 
-            minutes=2,
-        )
-        
-        # 2. Iniciar el scheduler
-        scheduler.start()
-        print("✅ Scheduler iniciado en HILO DEDICADO.")
-        
-        # 3. Registrar el cierre limpio (Es vital para contenedores)
-        atexit.register(lambda: scheduler.shutdown(wait=False))
-        
-    except Exception as e:
-        print(f"❌ ERROR al iniciar el Scheduler en el hilo: {e}")
-        import traceback
-        traceback.print_exc()
-
 if __name__ == '__main__':
     
     print("=" * 70)
     print("🚀 INICIANDO APLICACIÓN")
     print("=" * 70)
-    
-    # Crear scheduler
-    scheduler = BackgroundScheduler()
-    
-    # 1. Programar la tarea de PRUEBA (Cada 2 minutos)
-    scheduler.add_job(
-        job_reporte_semanal, 
-        trigger='interval', 
-        minutes=2,
-    )
-    
-    # 2. **EJECUCIÓN INMEDIATA** (Para forzar el log al arranque)
-    scheduler.add_job(job_reporte_semanal, 'date', run_date=datetime.now())
-
-    # 3. Iniciar scheduler INCONDICIONALMENTE
-    scheduler.start()
-    print("✅ Scheduler iniciado.")
-    
-    # 4. Registrar shutdown
-    atexit.register(lambda: scheduler.shutdown(wait=False))
     
     if EMAIL_EMPRESA_ADMIN:
         print(f"📧 Email admin: {EMAIL_EMPRESA_ADMIN}")
@@ -670,6 +602,5 @@ if __name__ == '__main__':
     print("=" * 70)
     print("🌐 Iniciando servidor Flask...\n")
     
-    # 5. Iniciar Flask (Ahora es lo último que se llama)
-    # Usamos debug=False por estabilidad en el hosting.
+    # Iniciar Flask (El job se ejecuta de forma externa)
     app.run(debug=False, host='0.0.0.0', port=8080)

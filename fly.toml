@@ -20,3 +20,30 @@ primary_region = 'gru'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+# fly.toml
+
+# ... (El resto de tu configuración es la misma: [http_service], [[vm]], etc.)
+
+[[statics]]
+  guest_path = "/app/src/jobs" # Asegura que la carpeta jobs esté accesible
+
+# 👇 AÑADIR ESTA SECCIÓN PARA EL CRON JOB
+[[vm]]
+  processes = ["worker"] # Este worker se encargará de ejecutar el cron
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "256mb" # Suficiente memoria para el worker
+
+[processes]
+  # Proceso principal web (ya lo tienes, solo para referencia)
+  app = "gunicorn app:app -c gunicorn.conf.py" 
+
+  # 👇 PROCESO WORKER CRON
+  # Usamos el comando "cron" de Linux para programar la ejecución
+  worker = "/usr/bin/python3 /app/src/jobs/run_weekly_report.py"
+
+[[machines]]
+  name = "cron-job"
+  schedule = "0 8 * * 1" # Lunes a las 8:00 AM (0 minutos, hora 8, cualquier día/mes, día 1 de la semana)
+  processes = ["worker"]
+  region = "gru" # Ejecutar solo en una región
