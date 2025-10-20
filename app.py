@@ -642,9 +642,25 @@ if __name__ == '__main__':
     print("🚀 INICIANDO APLICACIÓN")
     print("=" * 70)
     
-    # ⚠️ FIX: Iniciar el scheduler en un hilo separado ANTES de app.run()
-    scheduler_thread = Thread(target=start_scheduler)
-    scheduler_thread.start()
+    # Crear scheduler
+    scheduler = BackgroundScheduler()
+    
+    # 1. Programar la tarea de PRUEBA (Cada 2 minutos)
+    scheduler.add_job(
+        job_reporte_semanal, 
+        trigger='interval', 
+        minutes=2,
+    )
+    
+    # 2. **EJECUCIÓN INMEDIATA** (Para forzar el log al arranque)
+    scheduler.add_job(job_reporte_semanal, 'date', run_date=datetime.now())
+
+    # 3. Iniciar scheduler INCONDICIONALMENTE
+    scheduler.start()
+    print("✅ Scheduler iniciado.")
+    
+    # 4. Registrar shutdown
+    atexit.register(lambda: scheduler.shutdown(wait=False))
     
     if EMAIL_EMPRESA_ADMIN:
         print(f"📧 Email admin: {EMAIL_EMPRESA_ADMIN}")
@@ -654,5 +670,6 @@ if __name__ == '__main__':
     print("=" * 70)
     print("🌐 Iniciando servidor Flask...\n")
     
-    # Iniciar Flask (Ahora no bloquea el hilo del scheduler)
+    # 5. Iniciar Flask (Ahora es lo último que se llama)
+    # Usamos debug=False por estabilidad en el hosting.
     app.run(debug=False, host='0.0.0.0', port=8080)

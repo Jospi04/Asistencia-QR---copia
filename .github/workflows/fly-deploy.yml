@@ -1,7 +1,5 @@
 # .github/workflows/fly-deploy.yml
 
-# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
-
 name: Fly Deploy
 on:
   push:
@@ -15,11 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      
-      # 👇 CAMBIO CRUCIAL AQUÍ
       - run: flyctl deploy --remote-only
         env:
-          # ¡CORRECCIÓN! Esto referencia el Secreto que creaste en GitHub
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} 
-          
-      - uses: Post Run actions/checkout@v4 # Esta línea estaba al final en tu log, pero no en tu código
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
