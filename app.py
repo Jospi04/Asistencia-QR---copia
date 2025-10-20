@@ -9,7 +9,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
-# ELIMINADAS: Todas las importaciones de apscheduler y threading
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
 # Importar infraestructura
 from src.infrastructure.mysql_connection import MySQLConnection
@@ -39,7 +40,7 @@ db_connection = MySQLConnection()
 
 EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA') 
 if not EMAIL_EMPRESA_ADMIN:
-    print("❌ ADVERTENCIA: Variable EMAIL_EMPRESA no encontrada en .env.")
+    print("⚠️ ADVERTENCIA: Variable EMAIL_EMPRESA no encontrada en .env.")
 
 # Inicializar repositorios
 empresa_repo = EmpresaRepositoryMySQL(db_connection)
@@ -57,8 +58,33 @@ get_report_use_case = GetReportUseCase(empleado_repo, asistencia_repo, empresa_r
 # Inicializar QR generator
 qr_generator = QRGenerator()
 
-# Eliminada toda la lógica del scheduler interno y la función job_reporte_semanal
-
+# --------------------------------------------------------------------------------------
+# FUNCIÓN DEL JOB SEMANAL
+# --------------------------------------------------------------------------------------
+def job_reporte_semanal():
+    """Job semanal que envía reportes a la dueña y a los empleados"""
+    try:
+        print("=" * 70)
+        print("🚀 JOB SEMANAL INICIADO")
+        print(f"⏰ Hora servidor: {datetime.now()}")
+        print("=" * 70)
+        
+        print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS a la jefa...")
+        mark_attendance_use_case.generar_reporte_semanal()
+        print("✅ Reportes consolidados enviados\n")
+        
+        print("📧 PASO 2: Enviando reportes INDIVIDUALES a empleados...")
+        mark_attendance_use_case.enviar_reporte_individual_empleados()
+        print("✅ Reportes individuales enviados\n")
+        
+        print("🎉 JOB SEMANAL COMPLETADO EXITOSAMENTE")
+        print("=" * 70)
+    except Exception as e:
+        print("=" * 70)
+        print(f"❌ ERROR en Job Semanal: {e}")
+        import traceback
+        traceback.print_exc()
+        print("=" * 70)
 
 def obtener_nombre_mes(numero_mes):
     """Obtiene el nombre del mes por su número"""
@@ -295,6 +321,7 @@ def api_scan_qr():
 @app.route('/reports')
 def reports():
      if not session.get('admin_logged_in'):
+        flash('Debes iniciar sesión para acceder a los reportes', 'error')
         return redirect(url_for('admin_login'))
      
      empresas = list_companies_use_case.execute()
@@ -339,7 +366,6 @@ def api_get_empleados():
         
         empleados = empleado_repo.get_by_empresa_id(empresa_id)
         
-        # Convertir a diccionario
         empleados_data = []
         for emp in empleados:
             empleados_data.append({
@@ -588,19 +614,44 @@ def internal_error(error):
     return render_template('error.html', error_message="Error interno del servidor"), 500
 
 
+# --------------------------------------------------------------------------------------
+# INICIO DEL SCHEDULER (Solo en producción/Fly.io)
+# --------------------------------------------------------------------------------------
 if __name__ == '__main__':
     
     print("=" * 70)
     print("🚀 INICIANDO APLICACIÓN")
     print("=" * 70)
     
+    # Crear scheduler
+    scheduler = BackgroundScheduler()
+    
+    # Programar job semanal - LUNES 7:00 AM (Perú)
+    scheduler.add_job(
+        job_reporte_semanal, 
+        trigger='cron', 
+        day_of_week='mon',   # Lunes
+        hour=7,              # 7:00 AM
+        minute=0, 
+        timezone='America/Lima'
+    )
+    
+    print("✅ Job programado: Lunes a las 7:00 AM (Perú)")
+    
+    # Iniciar scheduler
+    scheduler.start()
+    print("✅ Scheduler iniciado correctamente")
+    
+    # Registrar shutdown
+    atexit.register(lambda: scheduler.shutdown(wait=False))
+    
     if EMAIL_EMPRESA_ADMIN:
         print(f"📧 Email admin: {EMAIL_EMPRESA_ADMIN}")
     else:
-        print("⚠️  EMAIL_EMPRESA no configurado")
+        print("⚠️  EMAIL_EMPRESA no configurado")
     
     print("=" * 70)
     print("🌐 Iniciando servidor Flask...\n")
     
-    # Iniciar Flask (El job se ejecuta de forma externa)
+    # Iniciar Flask (debug=False para producción)
     app.run(debug=False, host='0.0.0.0', port=8080)

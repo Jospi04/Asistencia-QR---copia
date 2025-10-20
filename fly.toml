@@ -1,4 +1,7 @@
-# fly.toml
+# fly.toml app configuration file generated for asistencia-qr-copia-winter-river-2953 on 2025-09-27T22:32:11-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = 'asistencia-qr-copia-winter-river-2953'
 primary_region = 'gru'
@@ -8,15 +11,10 @@ primary_region = 'gru'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = "false"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
-
-# Configuración del proceso de Job Externo
-[processes]
-  app = "python3 app.py" # Proceso web principal
-  worker = "python3 src/jobs/run_weekly_report.py" # Proceso del cron job
 
 [[vm]]
   memory = '1gb'
