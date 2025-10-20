@@ -28,6 +28,8 @@ from src.use_cases.mark_attendance import MarkAttendanceUseCase
 
 def run_weekly_job():
     """Inicializa las dependencias y ejecuta las tareas de reporte semanal."""
+    # Inicializar la conexión afuera del try/except para poder usarla en el finally
+    db_connection = None
     try:
         print("=" * 70)
         print("🚀 JOB SEMANAL INICIADO (CRON EXTERNO)")
@@ -37,7 +39,6 @@ def run_weekly_job():
         # 1. Configuración de dependencias
         db_connection = MySQLConnection()
         
-        # Inicialización de todos los repositorios
         empresa_repo = EmpresaRepositoryMySQL(db_connection)
         empleado_repo = EmpleadoRepositoryMySQL(db_connection)
         asistencia_repo = AsistenciaRepositoryMySQL(db_connection)
@@ -46,8 +47,7 @@ def run_weekly_job():
         
         EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA', '')
         
-        # 🛑 PARCHE FINAL (La única forma de resolver el error sin tocar mark_attendance.py)
-        # Esto crea el atributo que tu código está buscando en el repositorio de empleados.
+        # 🛑 PARCHE DE COMPATIBILIDAD FORZADO (Resuelve el error 'empresa_repo' object has no attribute)
         if not hasattr(empleado_repo, 'empresa_repo'):
              empleado_repo.empresa_repo = empresa_repo
              print("✅ PARCHE: Inyectando 'empresa_repo' en EmpleadoRepo para compatibilidad.")
@@ -71,10 +71,20 @@ def run_weekly_job():
         mark_attendance_use_case.enviar_reporte_individual_empleados()
         print("✅ Reportes individuales a empleados enviados correctamente\n")
         
+        
+        # 🛑 FIX CRÍTICO: CERRAR LA CONEXIÓN DE LA BASE DE DATOS
+        db_connection.disconnect()
+        print("✅ Conexión DB cerrada limpiamente.")
+        
         print("🎉 JOB SEMANAL COMPLETADO EXITOSAMENTE")
         print("=" * 70)
         
     except Exception as e:
+        # En caso de error, intenta cerrar la conexión para liberar recursos
+        if db_connection:
+            db_connection.disconnect()
+            print("⚠️ Conexión DB cerrada tras un error.")
+            
         print("=" * 70)
         print(f"❌ ERROR CRÍTICO durante la ejecución del Job: {e}")
         import traceback
