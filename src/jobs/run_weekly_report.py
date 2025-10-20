@@ -4,11 +4,11 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-# --- FIX de Ruta Relativa ---
+# --- FIX de Ruta Relativa para Entornos Externos ---
 import sys
 import os.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-# -----------------------------
+# ----------------------------------------------------
 
 # Cargar variables de entorno (necesario para las credenciales de DB y email)
 load_dotenv() 
@@ -21,6 +21,7 @@ from src.infrastructure.repositories_mysql import (
     AsistenciaRepositoryMySQL,
     HorarioEstandarRepositoryMySQL,
     EscaneoTrackingRepositoryMySQL,
+    AdministradorRepository
 )
 from src.use_cases.mark_attendance import MarkAttendanceUseCase
 
@@ -36,6 +37,7 @@ def run_weekly_job():
         # 1. Configuración de dependencias
         db_connection = MySQLConnection()
         
+        # Inicialización de todos los repositorios
         empresa_repo = EmpresaRepositoryMySQL(db_connection)
         empleado_repo = EmpleadoRepositoryMySQL(db_connection)
         asistencia_repo = AsistenciaRepositoryMySQL(db_connection)
@@ -44,13 +46,12 @@ def run_weekly_job():
         
         EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA', '')
         
-        # 🛑 PARCHE DE COMPATIBILIDAD FORZADO
-        # Esto inyecta el atributo que MarkAttendanceUseCase está buscando en EmpleadoRepository, 
-        # sin importar si es una mala práctica.
+        # 🛑 PARCHE FINAL (La única forma de resolver el error sin tocar mark_attendance.py)
+        # Esto crea el atributo que tu código está buscando en el repositorio de empleados.
         if not hasattr(empleado_repo, 'empresa_repo'):
              empleado_repo.empresa_repo = empresa_repo
-             print("✅ PARCHE: Inyectando 'empresa_repo' en EmpleadoRepo para compatibilidad con el servidor.")
-        
+             print("✅ PARCHE: Inyectando 'empresa_repo' en EmpleadoRepo para compatibilidad.")
+
         # 2. Inicializar el Use Case (Inyección de dependencias)
         mark_attendance_use_case = MarkAttendanceUseCase(
             empleado_repo,           
@@ -63,7 +64,7 @@ def run_weekly_job():
         
         # 3. Ejecutar las tareas
         print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS a la jefa...")
-        mark_attendance_use_case.generar_reporte_semanal()
+        mark_attendance_use_case.generar_reporte_semanal() 
         print("✅ Reportes consolidados a la jefa enviados correctamente\n")
         
         print("📧 PASO 2: Enviando reportes INDIVIDUALES a empleados...")
