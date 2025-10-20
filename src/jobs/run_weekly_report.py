@@ -1,13 +1,15 @@
-# run_weekly_report.py (Ubicado en src/jobs/)
+# src/jobs/run_weekly_report.py
 
 import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Configuración de path para que Python encuentre los módulos en la carpeta 'src'
+# --- FIX de Ruta Relativa para Entornos Externos ---
 import sys
 import os.path
+# Añade el directorio principal (dos niveles arriba de src/jobs/) al path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+# ----------------------------------------------------
 
 # Cargar variables de entorno (necesario para las credenciales de DB y email)
 load_dotenv() 
@@ -25,7 +27,7 @@ from src.use_cases.mark_attendance import MarkAttendanceUseCase
 
 
 def run_weekly_job():
-    """Inicializa los repositorios y ejecuta las tareas de reporte semanal."""
+    """Inicializa las dependencias y ejecuta las tareas de reporte semanal."""
     try:
         print("=" * 70)
         print("🚀 JOB SEMANAL INICIADO (CRON EXTERNO)")
@@ -34,7 +36,9 @@ def run_weekly_job():
         
         # 1. Configuración de dependencias
         db_connection = MySQLConnection()
-        empresa_repo = EmpresaRepositoryMySQL(db_connection)  # 👈 REPOSITORIO DE EMPRESAS
+        
+        # INICIALIZACIÓN DE TODOS LOS REPOSITORIOS (Replicando app.py)
+        empresa_repo = EmpresaRepositoryMySQL(db_connection)
         empleado_repo = EmpleadoRepositoryMySQL(db_connection)
         asistencia_repo = AsistenciaRepositoryMySQL(db_connection)
         horario_repo = HorarioEstandarRepositoryMySQL(db_connection)
@@ -42,18 +46,23 @@ def run_weekly_job():
         
         EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA', '')
         
-        # 2. Inicializar el Use Case (INYECCIÓN CORRECTA de empresa_repo)
+        # 2. Inicializar el Use Case (INYECCIÓN COMPLETA DE DEPENDENCIAS)
+        # ⚠️ Nota: Esta inicialización debe coincidir con la firma de __init__ en MarkAttendanceUseCase:
+        # (empleado_repo, asistencia_repo, horario_repo, escaneo_repo, empresa_repo, email_admin)
         mark_attendance_use_case = MarkAttendanceUseCase(
-            empleado_repo, 
-            asistencia_repo, 
-            horario_repo, 
-            escaneo_repo, 
-            empresa_repo,  # 👈 INYECCIÓN DEL REPOSITORIO DE EMPRESA
+            empleado_repo,           
+            asistencia_repo,         
+            horario_repo,            
+            escaneo_repo,            
+            empresa_repo,            # <-- Inyección de EmpresaRepository
             EMAIL_EMPRESA_ADMIN
         )
         
         # 3. Ejecutar las tareas
         print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS a la jefa...")
+        # Si el error persiste, la causa es que generar_reporte_semanal aún usa 
+        # self.empleado_repository.empresa_repo, lo cual DEBE cambiarse a 
+        # self.empresa_repository.get_all() en el archivo mark_attendance.py.
         mark_attendance_use_case.generar_reporte_semanal()
         print("✅ Reportes consolidados a la jefa enviados correctamente\n")
         
