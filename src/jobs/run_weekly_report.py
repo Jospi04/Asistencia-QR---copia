@@ -5,7 +5,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 # --- FIX de Ruta Relativa ---
-# Esto es necesario para que el script pueda encontrar los módulos en la carpeta 'src'
 import sys
 import os.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -22,7 +21,6 @@ from src.infrastructure.repositories_mysql import (
     AsistenciaRepositoryMySQL,
     HorarioEstandarRepositoryMySQL,
     EscaneoTrackingRepositoryMySQL,
-    AdministradorRepository # <-- Necesario si se usa en el setup
 )
 from src.use_cases.mark_attendance import MarkAttendanceUseCase
 
@@ -35,7 +33,7 @@ def run_weekly_job():
         print(f"⏰ Hora servidor: {datetime.now()}")
         print("=" * 70)
         
-        # 1. Configuración de dependencias (REPLICANDO EL ENTORNO DE app.py)
+        # 1. Configuración de dependencias
         db_connection = MySQLConnection()
         
         empresa_repo = EmpresaRepositoryMySQL(db_connection)
@@ -46,22 +44,26 @@ def run_weekly_job():
         
         EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA', '')
         
-        # 2. Inicializar el Use Case (INYECCIÓN COMPLETA DE DEPENDENCIAS)
-        # La firma de MarkAttendanceUseCase es: 
-        # (empleado_repo, asistencia_repo, horario_repo, escaneo_repo, empresa_repo, email_admin)
+        # 🛑 PARCHE DE COMPATIBILIDAD FORZADO
+        # Esto inyecta el atributo que MarkAttendanceUseCase está buscando en EmpleadoRepository, 
+        # sin importar si es una mala práctica.
+        if not hasattr(empleado_repo, 'empresa_repo'):
+             empleado_repo.empresa_repo = empresa_repo
+             print("✅ PARCHE: Inyectando 'empresa_repo' en EmpleadoRepo para compatibilidad con el servidor.")
+        
+        # 2. Inicializar el Use Case (Inyección de dependencias)
         mark_attendance_use_case = MarkAttendanceUseCase(
             empleado_repo,           
             asistencia_repo,         
             horario_repo,            
             escaneo_repo,            
-            empresa_repo,            # <-- ESTA ES LA POSICIÓN CORRECTA
+            empresa_repo,            
             EMAIL_EMPRESA_ADMIN
         )
         
         # 3. Ejecutar las tareas
         print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS a la jefa...")
-        # Si esto falla, la única causa es que mark_attendance.py no está actualizado.
-        mark_attendance_use_case.generar_reporte_semanal() 
+        mark_attendance_use_case.generar_reporte_semanal()
         print("✅ Reportes consolidados a la jefa enviados correctamente\n")
         
         print("📧 PASO 2: Enviando reportes INDIVIDUALES a empleados...")
