@@ -2,15 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 import os
 from datetime import datetime
 import pandas as pd
-from dotenv import load_dotenv
-load_dotenv()
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import calendar
-from apscheduler.schedulers.background import BackgroundScheduler
-import atexit
 
 # Importar infraestructura
 from src.infrastructure.mysql_connection import MySQLConnection
@@ -37,11 +33,6 @@ app.secret_key = os.getenv('SECRET_KEY') or 'clave-secreta-temporal-desarrollo-c
 
 # Configuración de base de datos
 db_connection = MySQLConnection()
-
-EMAIL_EMPRESA_ADMIN = os.getenv('EMAIL_EMPRESA') 
-if not EMAIL_EMPRESA_ADMIN:
-    print("⚠️ ADVERTENCIA: Variable EMAIL_EMPRESA no encontrada en .env.")
-
 # Inicializar repositorios
 empresa_repo = EmpresaRepositoryMySQL(db_connection)
 empleado_repo = EmpleadoRepositoryMySQL(db_connection)
@@ -51,40 +42,12 @@ escaneo_repo = EscaneoTrackingRepositoryMySQL(db_connection)
 
 # Inicializar use cases
 register_employee_use_case = RegisterEmployeeUseCase(empleado_repo)
-mark_attendance_use_case = MarkAttendanceUseCase(empleado_repo, asistencia_repo, horario_repo, escaneo_repo, empresa_repo, EMAIL_EMPRESA_ADMIN)
+mark_attendance_use_case = MarkAttendanceUseCase(empleado_repo, asistencia_repo, horario_repo, escaneo_repo)
 list_companies_use_case = ListCompaniesUseCase(empresa_repo,)
 get_report_use_case = GetReportUseCase(empleado_repo, asistencia_repo, empresa_repo)
 
 # Inicializar QR generator
 qr_generator = QRGenerator()
-
-# --------------------------------------------------------------------------------------
-# FUNCIÓN DEL JOB SEMANAL
-# --------------------------------------------------------------------------------------
-def job_reporte_semanal():
-    """Job semanal que envía reportes a la dueña y a los empleados"""
-    try:
-        print("=" * 70)
-        print("🚀 JOB SEMANAL INICIADO")
-        print(f"⏰ Hora servidor: {datetime.now()}")
-        print("=" * 70)
-        
-        print("\n📧 PASO 1: Enviando reportes CONSOLIDADOS a la jefa...")
-        mark_attendance_use_case.generar_reporte_semanal()
-        print("✅ Reportes consolidados enviados\n")
-        
-        print("📧 PASO 2: Enviando reportes INDIVIDUALES a empleados...")
-        mark_attendance_use_case.enviar_reporte_individual_empleados()
-        print("✅ Reportes individuales enviados\n")
-        
-        print("🎉 JOB SEMANAL COMPLETADO EXITOSAMENTE")
-        print("=" * 70)
-    except Exception as e:
-        print("=" * 70)
-        print(f"❌ ERROR en Job Semanal: {e}")
-        import traceback
-        traceback.print_exc()
-        print("=" * 70)
 
 def obtener_nombre_mes(numero_mes):
     """Obtiene el nombre del mes por su número"""
@@ -366,6 +329,7 @@ def api_get_empleados():
         
         empleados = empleado_repo.get_by_empresa_id(empresa_id)
         
+        # Convertir a diccionario
         empleados_data = []
         for emp in empleados:
             empleados_data.append({
@@ -381,6 +345,7 @@ def api_get_empleados():
     except Exception as e:
         print(f"Error en api_get_empleados: {e}")
         return jsonify({"error": str(e)}), 500
+    
 
 @app.route('/api/asistencias/<int:empleado_id>')
 def api_get_asistencia_empleado(empleado_id):
@@ -614,44 +579,5 @@ def internal_error(error):
     return render_template('error.html', error_message="Error interno del servidor"), 500
 
 
-# --------------------------------------------------------------------------------------
-# INICIO DEL SCHEDULER (Solo en producción/Fly.io)
-# --------------------------------------------------------------------------------------
 if __name__ == '__main__':
-    
-    print("=" * 70)
-    print("🚀 INICIANDO APLICACIÓN")
-    print("=" * 70)
-    
-    # Crear scheduler
-    scheduler = BackgroundScheduler()
-    
-    # Programar job semanal - LUNES 7:00 AM (Perú)
-    scheduler.add_job(
-        job_reporte_semanal, 
-        trigger='cron', 
-        day_of_week='mon',   # Lunes
-        hour=7,              # 7:00 AM
-        minute=0, 
-        timezone='America/Lima'
-    )
-    
-    print("✅ Job programado: Lunes a las 7:00 AM (Perú)")
-    
-    # Iniciar scheduler
-    scheduler.start()
-    print("✅ Scheduler iniciado correctamente")
-    
-    # Registrar shutdown
-    atexit.register(lambda: scheduler.shutdown(wait=False))
-    
-    if EMAIL_EMPRESA_ADMIN:
-        print(f"📧 Email admin: {EMAIL_EMPRESA_ADMIN}")
-    else:
-        print("⚠️  EMAIL_EMPRESA no configurado")
-    
-    print("=" * 70)
-    print("🌐 Iniciando servidor Flask...\n")
-    
-    # Iniciar Flask (debug=False para producción)
-    app.run(debug=False, host='0.0.0.0', port=8080)
+    app.run(debug=False, host='0.0.0.0', port=5000)
