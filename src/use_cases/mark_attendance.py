@@ -231,7 +231,7 @@ class MarkAttendanceUseCase:
     def _evaluar_tardanzas(self, asistencia: Asistencia):
         # HORARIOS ESPERADOS SIN TOLERANCIA
         hora_entrada_manana_esperada = time(6, 50)  # 6:50 AM
-        hora_entrada_tarde_esperada = time(13, 0)   # 1:00 PM
+        hora_entrada_tarde_esperada = time(14, 50)   # 1:00 PM
 
         # Comparar directamente sin tolerancia
         if asistencia.entrada_manana_real:

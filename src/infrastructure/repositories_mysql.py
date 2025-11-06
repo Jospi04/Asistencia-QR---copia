@@ -95,6 +95,7 @@ class EmpresaRepositoryMySQL(EmpresaRepository):
         query = "DELETE FROM EMPRESAS WHERE id = %s"
         return self.db.execute_update(query, (id,))
 
+
 class EmpleadoRepositoryMySQL(EmpleadoRepository):
     def __init__(self, db_connection: MySQLConnection):
         self.db = db_connection
@@ -255,6 +256,11 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
             horas_extras=float(row['horas_extras'] or 0),
             estado_dia=row['estado_dia']
         )
+        # Cargar los campos booleanos
+        asistencia.asistio_manana = bool(row.get('asistio_manana', 0))
+        asistencia.asistio_tarde = bool(row.get('asistio_tarde', 0))
+        asistencia.tardanza_manana = bool(row.get('tardanza_manana', 0))
+        asistencia.tardanza_tarde = bool(row.get('tardanza_tarde', 0))
         asistencia.created_at = row.get('created_at')
         asistencia.updated_at = row.get('updated_at')
         return asistencia
@@ -284,6 +290,11 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
                 horas_extras=float(row['horas_extras'] or 0),
                 estado_dia=row['estado_dia']
             )
+            # Cargar los campos booleanos
+            asistencia.asistio_manana = bool(row.get('asistio_manana', 0))
+            asistencia.asistio_tarde = bool(row.get('asistio_tarde', 0))
+            asistencia.tardanza_manana = bool(row.get('tardanza_manana', 0))
+            asistencia.tardanza_tarde = bool(row.get('tardanza_tarde', 0))
             asistencia.created_at = row.get('created_at')
             asistencia.updated_at = row.get('updated_at')
             asistencias.append(asistencia)
@@ -314,6 +325,11 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
                 horas_extras=float(row['horas_extras'] or 0),
                 estado_dia=row['estado_dia']
             )
+            # Cargar los campos booleanos
+            asistencia.asistio_manana = bool(row.get('asistio_manana', 0))
+            asistencia.asistio_tarde = bool(row.get('asistio_tarde', 0))
+            asistencia.tardanza_manana = bool(row.get('tardanza_manana', 0))
+            asistencia.tardanza_tarde = bool(row.get('tardanza_tarde', 0))
             asistencia.created_at = row.get('created_at')
             asistencia.updated_at = row.get('updated_at')
             asistencias.append(asistencia)
@@ -324,15 +340,18 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
             INSERT INTO ASISTENCIA 
             (empleado_id, fecha, entrada_manana_real, salida_manana_real, 
              entrada_tarde_real, salida_tarde_real, total_horas_trabajadas, 
-             horas_normales, horas_extras, estado_dia)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             horas_normales, horas_extras, estado_dia, 
+             asistio_manana, asistio_tarde, tardanza_manana, tardanza_tarde)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         asistencia_id = self.db.execute_insert(query, (
             asistencia.empleado_id, asistencia.fecha,
             asistencia.entrada_manana_real, asistencia.salida_manana_real,
             asistencia.entrada_tarde_real, asistencia.salida_tarde_real,
             asistencia.total_horas_trabajadas, asistencia.horas_normales,
-            asistencia.horas_extras, asistencia.estado_dia
+            asistencia.horas_extras, asistencia.estado_dia,
+            asistencia.asistio_manana, asistencia.asistio_tarde,
+            asistencia.tardanza_manana, asistencia.tardanza_tarde
         ))
         if asistencia_id:
             asistencia.id = asistencia_id
@@ -344,14 +363,19 @@ class AsistenciaRepositoryMySQL(AsistenciaRepository):
             SET entrada_manana_real = %s, salida_manana_real = %s,
                 entrada_tarde_real = %s, salida_tarde_real = %s,
                 total_horas_trabajadas = %s, horas_normales = %s,
-                horas_extras = %s, estado_dia = %s
+                horas_extras = %s, estado_dia = %s,
+                asistio_manana = %s, asistio_tarde = %s,
+                tardanza_manana = %s, tardanza_tarde = %s
             WHERE id = %s
         """
         self.db.execute_update(query, (
             asistencia.entrada_manana_real, asistencia.salida_manana_real,
             asistencia.entrada_tarde_real, asistencia.salida_tarde_real,
             asistencia.total_horas_trabajadas, asistencia.horas_normales,
-            asistencia.horas_extras, asistencia.estado_dia, asistencia.id
+            asistencia.horas_extras, asistencia.estado_dia,
+            asistencia.asistio_manana, asistencia.asistio_tarde,
+            asistencia.tardanza_manana, asistencia.tardanza_tarde,
+            asistencia.id
         ))
         return asistencia
     
