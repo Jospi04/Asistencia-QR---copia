@@ -33,44 +33,59 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
+/* date selector visuals (blend of both styles) */
 .date-selector-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .form-control:focus, .form-select:focus {
     border-color: #667eea;
-    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    box-shadow: 0 0 0 0.15rem rgba(102, 126, 234, 0.12);
+
+}
+/* Agregar dentro del bloque <style> */
+
+/* Eliminar bordes laterales molestos */
+.list-group-item {
+    border-left: none !important;
+    border-right: none !important;
+    transition: all 0.2s ease;
 }
 
-/* Estilos para las pestañas */
-.nav-tabs-custom {
-    border-bottom: 3px solid #e5e7eb;
+/* Solo mantener borde inferior sutil */
+.list-group-item:not(:last-child) {
+    border-bottom: 1px solid rgba(0,0,0,0.08) !important;
 }
 
-.nav-tabs-custom .nav-link {
-    border: none;
-    color: #6b7280;
-    font-weight: 600;
-    padding: 12px 24px;
-    transition: all 0.3s ease;
+/* Eliminar borde del último elemento */
+.list-group-item:last-child {
+    border-bottom: none !important;
 }
 
-.nav-tabs-custom .nav-link:hover {
-    color: #4f46e5;
-    background-color: #f3f4f6;
+/* Mejorar el borde de color lateral */
+.border-start {
+    border-left-width: 4px !important;
+    padding-left: 12px !important;
 }
 
-.nav-tabs-custom .nav-link.active {
-    color: #4f46e5;
-    background-color: transparent;
-    border-bottom: 3px solid #4f46e5;
-    margin-bottom: -3px;
+/* Hover más suave */
+.list-group-item:hover {
+    background-color: #f8fafc;
+    transform: translateX(3px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
-.tab-icon {
-    font-size: 1.2em;
-    margin-right: 8px;
+/* Mejorar espaciado interno */
+.list-group-flush .list-group-item {
+    padding: 1rem 0.5rem;
+}
+#grafico-container {
+    min-height: 400px;
+    position: relative;
+}
+
+#grafico-diario {
+    max-height: 380px;
 }
 </style>
 
@@ -80,46 +95,49 @@
             <div class="header-gradient py-4 mb-4 rounded">
                 <div class="container">
                     <h1 class="mb-0"><i class="fas fa-chart-line me-3"></i>Reporte Semanal de Actividad</h1>
-                    <p class="mb-0">Análisis de comportamiento y rendimiento por período</p>
+                    <p class="mb-0">Análisis de comportamiento y rendimiento semanal</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- FILTROS CON SELECTOR DE FECHAS -->
+    <!-- FILTROS: Empresa + Fecha Inicio/Fin + Atajos -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm date-selector-card">
                 <div class="card-body">
                     <div class="row align-items-end">
-                        <div class="col-md-3 mb-3 mb-md-0">
+                        <div class="col-md-4 mb-3 mb-md-0">
                             <label class="form-label fw-bold">
                                 <i class="fas fa-building me-2"></i>Empresa
                             </label>
-                            <select class="form-select bg-white" id="empresa-selector" onchange="cargarReporteSemanal()">
+                            <select class="form-select" id="empresa-selector">
                                 <option value="">Todas las empresas</option>
                                 {% for empresa in empresas %}
                                 <option value="{{ empresa.id }}">{{ empresa.nombre }}</option>
                                 {% endfor %}
                             </select>
                         </div>
+
                         <div class="col-md-3 mb-3 mb-md-0">
                             <label class="form-label fw-bold">
                                 <i class="fas fa-calendar-alt me-2"></i>Fecha Inicio
                             </label>
-                            <input type="date" class="form-control bg-white" id="fecha-inicio" onchange="cargarReporteSemanal()">
+                            <input type="date" class="form-control" id="fecha-inicio">
                         </div>
+
                         <div class="col-md-3 mb-3 mb-md-0">
                             <label class="form-label fw-bold">
                                 <i class="fas fa-calendar-check me-2"></i>Fecha Fin
                             </label>
-                            <input type="date" class="form-control bg-white" id="fecha-fin" onchange="cargarReporteSemanal()">
+                            <input type="date" class="form-control" id="fecha-fin">
                         </div>
-                        <div class="col-md-3">
+
+                        <div class="col-md-2">
                             <label class="form-label fw-bold">
                                 <i class="fas fa-clock me-2"></i>Atajos rápidos
                             </label>
-                            <select class="form-select bg-white" id="atajo-selector" onchange="aplicarAtajo()">
+                            <select class="form-select" id="atajo-selector">
                                 <option value="">Seleccionar período...</option>
                                 <option value="hoy">Hoy</option>
                                 <option value="ayer">Ayer</option>
@@ -130,11 +148,12 @@
                             </select>
                         </div>
                     </div>
+
                     <div class="row mt-3">
                         <div class="col-12 text-center">
                             <p class="mb-0 h6" id="periodo-texto">
                                 <i class="fas fa-calendar-week me-2"></i>
-                                <span class="spinner-border spinner-border-sm"></span> Seleccione un período
+                                <span class="spinner-border spinner-border-sm"></span> Cargando...
                             </p>
                         </div>
                     </div>
@@ -155,7 +174,7 @@
                     <h2 class="mb-1 fw-bold text-success" id="promedio-puntualidad">
                         <div class="skeleton" style="width: 80px; height: 40px; border-radius: 4px;"></div>
                     </h2>
-                    <small class="text-muted">Por turno registrado</small>
+                    <small class="text-muted">Empleados puntuales</small>
                 </div>
             </div>
         </div>
@@ -170,7 +189,7 @@
                     <h2 class="mb-1 fw-bold text-primary" id="porcentaje-asistencia">
                         <div class="skeleton" style="width: 80px; height: 40px; border-radius: 4px;"></div>
                     </h2>
-                    <small class="text-muted">Turnos asistidos</small>
+                    <small class="text-muted">Del total de empleados</small>
                 </div>
             </div>
         </div>
@@ -185,7 +204,7 @@
                     <h2 class="mb-1 fw-bold text-warning" id="total-tardanzas">
                         <div class="skeleton" style="width: 60px; height: 40px; border-radius: 4px;"></div>
                     </h2>
-                    <small class="text-muted">Turnos con tardanza</small>
+                    <small class="text-muted">Durante el período</small>
                 </div>
             </div>
         </div>
@@ -200,125 +219,175 @@
                     <h2 class="mb-1 fw-bold text-danger" id="total-faltas">
                         <div class="skeleton" style="width: 60px; height: 40px; border-radius: 4px;"></div>
                     </h2>
-                    <small class="text-muted">Turnos sin registro</small>
+                    <small class="text-muted">Faltas registradas</small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- TOPS CON PESTAÑAS POR TURNO -->
+    <!-- GRÁFICOS -->
+    <!-- GRÁFICOS -->
+<div class="row mb-4">
+    <!-- Gráfico de Asistencia Diaria -->
+    <div class="col-lg-8 mb-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header" style="background-color: #14532d; color: white;">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Asistencia Diaria
+                </h5>
+            </div>
+            <div class="card-body" id="grafico-container" style="min-height: 400px;">
+                <canvas id="grafico-diario"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna derecha: Primero Rojo, luego Verde -->
+    <div class="col-lg-4 mb-4">
+        <!-- 1️ Días con Menor Asistencia (ROJO ARRIBA) -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header" style="background-color: #dc2626; color: white;">
+                <h6 class="mb-0">
+                    <i class="fas fa-calendar-times me-2"></i>Días con Menor Asistencia
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="peores-dias">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-danger" role="status"></div>
+                        <p class="text-muted mt-2 mb-0">Procesando datos...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2️ Horas Frecuentes (VERDE ABAJO) -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header" style="background-color: #166534; color: white;">
+                <h6 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>Horas de Ingreso Más Frecuentes
+                </h6>
+            </div>
+            <div class="card-body">
+                <div id="horas-frecuentes">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-success" role="status"></div>
+                        <p class="text-muted mt-2 mb-0">Analizando horarios...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- COMPARACIÓN ENTRE EMPRESAS -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header" style="background-color: #4f46e5; color: white;">
+                <div class="card-header" style="background-color: #0891b2; color: white;">
                     <h5 class="mb-0">
-                        <i class="fas fa-medal me-2"></i>Rankings de Rendimiento por Turno
+                        <i class="fas fa-building me-2"></i>Rendimiento por Empresa
                     </h5>
-                    <small>Cada turno (mañana/tarde) cuenta por separado</small>
                 </div>
-                <div class="card-body p-0">
-                    <!-- Pestañas -->
-                    <ul class="nav nav-tabs nav-tabs-custom px-3 pt-3" id="turnoTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="turno-manana-tab" data-bs-toggle="tab" 
-                                    data-bs-target="#turno-manana" type="button" role="tab">
-                                <span class="tab-icon">☀️</span> Turno Mañana
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="turno-tarde-tab" data-bs-toggle="tab" 
-                                    data-bs-target="#turno-tarde" type="button" role="tab">
-                                <span class="tab-icon">🌙</span> Turno Tarde
-                            </button>
-                        </li>
-                    </ul>
-
-                    <!-- Contenido de las pestañas -->
-                    <div class="tab-content p-3" id="turnoTabContent">
-                        <!-- TURNO MAÑANA -->
-                        <div class="tab-pane fade show active" id="turno-manana" role="tabpanel">
-                            <div class="row">
-                                <!-- Top Puntuales Mañana -->
-                                <div class="col-md-6 mb-3">
-                                    <div class="card border-0 shadow-sm h-100">
-                                        <div class="card-header" style="background-color: #22c55e; color: white;">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-trophy me-2"></i>Top 5 Más Puntuales
-                                            </h6>
-                                            <small>Entrada ≤ 06:50 AM</small>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="top-puntuales-manana">
-                                                <div class="text-center py-3">
-                                                    <div class="spinner-border text-success" role="status"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Top Tardones Mañana -->
-                                <div class="col-md-6 mb-3">
-                                    <div class="card border-0 shadow-sm h-100">
-                                        <div class="card-header" style="background-color: #f59e0b; color: white;">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-user-clock me-2"></i>Top 5 Más Tardones 😅
-                                            </h6>
-                                            <small>Entrada > 06:50 AM</small>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="top-tardes-manana">
-                                                <div class="text-center py-3">
-                                                    <div class="spinner-border text-warning" role="status"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="card-body">
+                    <div id="comparacion-empresas">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-info" role="status"></div>
+                            <p class="text-muted mt-2 mb-0">Comparando empresas...</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                        <!-- TURNO TARDE -->
-                        <div class="tab-pane fade" id="turno-tarde" role="tabpanel">
-                            <div class="row">
-                                <!-- Top Puntuales Tarde -->
-                                <div class="col-md-6 mb-3">
-                                    <div class="card border-0 shadow-sm h-100">
-                                        <div class="card-header" style="background-color: #3b82f6; color: white;">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-trophy me-2"></i>Top 5 Más Puntuales
-                                            </h6>
-                                            <small>Entrada ≤ 02:50 PM</small>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="top-puntuales-tarde">
-                                                <div class="text-center py-3">
-                                                    <div class="spinner-border text-primary" role="status"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+    <!-- INFORMACIÓN ADICIONAL -->
+    <div class="row mb-4">
+        <!-- Top Puntuales -->
+        <div class="col-lg-4 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header" style="background-color: #22c55e; color: white;">
+                    <h6 class="mb-0">
+                        <i class="fas fa-trophy me-2"></i>Top 5 Más Puntuales
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="top-puntuales">
+                        <div class="text-center py-3">
+                            <div class="spinner-border text-success" role="status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                                <!-- Top Tardones Tarde -->
-                                <div class="col-md-6 mb-3">
-                                    <div class="card border-0 shadow-sm h-100">
-                                        <div class="card-header" style="background-color: #ef4444; color: white;">
-                                            <h6 class="mb-0">
-                                                <i class="fas fa-user-clock me-2"></i>Top 5 Más Tardones 😅
-                                            </h6>
-                                            <small>Entrada > 02:50 PM</small>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="top-tardes-tarde">
-                                                <div class="text-center py-3">
-                                                    <div class="spinner-border text-danger" role="status"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+        <!-- Top Tardones -->
+        <div class="col-lg-4 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header" style="background-color: #f59e0b; color: white;">
+                    <h6 class="mb-0">
+                        <i class="fas fa-user-clock me-2"></i>Los Más Tardones 😅
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="top-tardes">
+                        <div class="text-center py-3">
+                            <div class="spinner-border text-warning" role="status"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights -->
+        <div class="col-lg-4 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header" style="background-color: #6366f1; color: white;">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Análisis y Recomendaciones
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="insights">
+                        <div class="skeleton mb-2" style="height: 20px; width: 100%;"></div>
+                        <div class="skeleton mb-2" style="height: 20px; width: 90%;"></div>
+                        <div class="skeleton" style="height: 20px; width: 80%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DETALLES DEL REPORTE -->
+    <div class="row mb-4">
+        <div class="col-lg-12 mb-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header" style="background-color: #8b5cf6; color: white;">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Detalles del Reporte
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3 col-6 mb-3 mb-md-0 border-end">
+                            <i class="fas fa-users text-primary fa-2x mb-2"></i>
+                            <h4 id="info-empleados" class="mb-0">--</h4>
+                            <small class="text-muted">Total Empleados</small>
+                        </div>
+                        <div class="col-md-3 col-6 mb-3 mb-md-0 border-end">
+                            <i class="fas fa-business-time text-success fa-2x mb-2"></i>
+                            <h4 id="info-horas-extras" class="mb-0">--</h4>
+                            <small class="text-muted">Horas Extras</small>
+                        </div>
+                        <div class="col-md-3 col-6 border-end">
+                            <i class="fas fa-calendar text-info fa-2x mb-2"></i>
+                            <h4 class="mb-0" id="info-dias-analizados">--</h4>
+                            <small class="text-muted">Días Analizados</small>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <i class="fas fa-chart-line text-warning fa-2x mb-2"></i>
+                            <h4 id="info-porcentaje" class="mb-0">--</h4>
+                            <small class="text-muted">% Asistencia</small>
                         </div>
                     </div>
                 </div>
@@ -336,21 +405,12 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+let chartDiario = null;
 let isLoading = false;
 
-// Inicializar fechas al cargar la página
-document.addEventListener('DOMContentLoaded', function() {
-    const hoy = new Date();
-    const inicioSemana = new Date(hoy);
-    inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1); // Lunes
-    
-    document.getElementById('fecha-inicio').value = formatDate(inicioSemana);
-    document.getElementById('fecha-fin').value = formatDate(hoy);
-    
-    cargarReporteSemanal();
-});
-
+// Helper: formatea fecha a yyyy-mm-dd
 function formatDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -358,11 +418,39 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
+// Inicializar fechas al cargar la página: inicio = lunes de la semana actual, fin = hoy
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date();
+    const inicioSemana = new Date(hoy);
+    inicioSemana.setDate(hoy.getDate() - hoy.getDay() + 1); // Lunes (asumiendo semana inicia en Lunes)
+    document.getElementById('fecha-inicio').value = formatDate(inicioSemana);
+    document.getElementById('fecha-fin').value = formatDate(hoy);
+
+    // listeners: cuando cambien empresa/fechas/atajo -> recargar automáticamente
+    document.getElementById('empresa-selector').addEventListener('change', cargarReporteSemanalDebounced);
+    document.getElementById('fecha-inicio').addEventListener('change', cargarReporteSemanalDebounced);
+    document.getElementById('fecha-fin').addEventListener('change', cargarReporteSemanalDebounced);
+    document.getElementById('atajo-selector').addEventListener('change', aplicarAtajo);
+
+    // cargar al inicio
+    cargarReporteSemanal();
+});
+
+// Debounce simple para evitar muchas peticiones al teclear cambiar fecha rápido
+let debounceTimer = null;
+function cargarReporteSemanalDebounced() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        cargarReporteSemanal();
+        debounceTimer = null;
+    }, 300);
+}
+
 function aplicarAtajo() {
     const atajo = document.getElementById('atajo-selector').value;
     const hoy = new Date();
     let inicio, fin;
-    
+
     switch(atajo) {
         case 'hoy':
             inicio = fin = hoy;
@@ -394,11 +482,10 @@ function aplicarAtajo() {
         default:
             return;
     }
-    
+
     document.getElementById('fecha-inicio').value = formatDate(inicio);
     document.getElementById('fecha-fin').value = formatDate(fin);
     document.getElementById('atajo-selector').value = '';
-    
     cargarReporteSemanal();
 }
 
@@ -414,40 +501,42 @@ function mostrarError(mensaje) {
     setTimeout(() => alertDiv.remove(), 5000);
 }
 
+// --- FUNCIONES PARA LLAMADAS API Y RENDER ---
 function cargarReporteSemanal() {
     if (isLoading) return;
-    
+    isLoading = true;
+
+    const empresaId = document.getElementById('empresa-selector').value;
     const fechaInicio = document.getElementById('fecha-inicio').value;
     const fechaFin = document.getElementById('fecha-fin').value;
-    
+
     if (!fechaInicio || !fechaFin) {
         mostrarError('Por favor seleccione ambas fechas');
+        isLoading = false;
         return;
     }
-    
     if (new Date(fechaInicio) > new Date(fechaFin)) {
         mostrarError('La fecha de inicio debe ser menor o igual a la fecha de fin');
+        isLoading = false;
         return;
     }
-    
-    isLoading = true;
-    
-    const empresaId = document.getElementById('empresa-selector').value;
+
     const params = new URLSearchParams();
-    
     if (empresaId) params.append('empresa_id', empresaId);
     params.append('fecha_inicio', fechaInicio);
     params.append('fecha_fin', fechaFin);
-    
+
     const queryString = params.toString();
-    
-    // Cargar resumen
+
+    // 1) Summary
     fetch(`/api/weekly-report/summary?${queryString}`)
         .then(res => {
-            if (!res.ok) throw new Error('Error en el servidor');
+            if (!res.ok) throw new Error('Error en el servidor (summary)');
             return res.json();
         })
         .then(data => {
+            if (data.error) throw new Error(data.error || 'Error al obtener resumen');
+
             document.getElementById('periodo-texto').classList.add('fade-in');
             document.getElementById('periodo-texto').innerHTML = `
                 <i class="fas fa-calendar-week me-2"></i>
@@ -457,127 +546,325 @@ function cargarReporteSemanal() {
             document.getElementById('porcentaje-asistencia').textContent = `${data.porcentaje_asistencia}%`;
             document.getElementById('total-tardanzas').textContent = data.total_tardanzas;
             document.getElementById('total-faltas').textContent = data.total_faltas;
-            
-            isLoading = false;
+            document.getElementById('info-empleados').textContent = data.total_empleados;
+            document.getElementById('info-horas-extras').textContent = data.horas_extras;
+            document.getElementById('info-dias-analizados').textContent = data.dias_periodo;
+            document.getElementById('info-porcentaje').textContent = `${data.porcentaje_asistencia}%`;
+
+            generarInsights(data);
         })
         .catch(err => {
-            console.error('Error cargando resumen:', err);
+            console.error('Error cargando summary:', err);
             mostrarError('Error al cargar el resumen del reporte');
+        })
+        .finally(() => {
+            // no hacer isLoading=false aún: dejamos para cuando terminen otros fetches? 
+            // pero para evitar bloqueo excesivo lo liberamos aquí para permitir nuevas peticiones si usuario cambia rápido.
             isLoading = false;
         });
 
-    // Cargar Top Puntuales Mañana
-    fetch(`/api/weekly-report/top-punctual-morning?${queryString}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.length === 0) {
-                document.getElementById('top-puntuales-manana').innerHTML = `
-                    <p class="text-muted text-center mb-0">Sin datos en este período</p>
-                `;
-            } else {
-                let html = '<div class="list-group list-group-flush">';
-                data.forEach((emp, idx) => {
-                    const porcentaje = emp.total_ingresos > 0 ? Math.round((emp.puntualidades / emp.total_ingresos) * 100) : 0;
-                    const iconoMedalla = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🏅';
-                    html += `
-                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <div>
-                                <span class="fw-bold">${iconoMedalla} ${idx + 1}. ${emp.nombre}</span><br>
-                                <small class="text-muted">${emp.puntualidades}/${emp.total_ingresos} veces puntual</small>
-                            </div>
-                            <span class="badge bg-success rounded-pill">${porcentaje}%</span>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                document.getElementById('top-puntuales-manana').innerHTML = html;
-            }
+    // 2) Daily attendance (gráfico)
+    fetch(`/api/weekly-report/daily-attendance?${queryString}`)
+        .then(res => {
+            if (!res.ok) throw new Error('Error en el servidor (daily-attendance)');
+            return res.json();
         })
-        .catch(err => console.error('Error:', err));
+        .then(data => {
+            const ctx = document.getElementById('grafico-diario');
 
-    // Cargar Top Tardones Mañana
-    fetch(`/api/weekly-report/top-late-morning?${queryString}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.length === 0) {
-                document.getElementById('top-tardes-manana').innerHTML = `
-                    <p class="text-muted text-center mb-0">¡Nadie llegó tarde en la mañana! 🎉</p>
-                `;
-            } else {
-                let html = '<div class="list-group list-group-flush">';
-                data.forEach((emp, idx) => {
-                    html += `
-                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <div>
-                                <span class="fw-bold">${idx + 1}. ${emp.nombre}</span><br>
-                                <small class="text-muted">${emp.tardanzas}/${emp.total_ingresos} veces tarde</small>
-                            </div>
-                            <span class="badge bg-warning text-dark rounded-pill">${emp.tardanzas} 🕐</span>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                document.getElementById('top-tardes-manana').innerHTML = html;
-            }
-        })
-        .catch(err => console.error('Error:', err));
+            if (chartDiario) chartDiario.destroy();
 
-    // Cargar Top Puntuales Tarde
-    fetch(`/api/weekly-report/top-punctual-afternoon?${queryString}`)
-        .then(res => res.json())
-        .then(data => {
-            if (data.length === 0) {
-                document.getElementById('top-puntuales-tarde').innerHTML = `
-                    <p class="text-muted text-center mb-0">Sin datos en este período</p>
-                `;
-            } else {
-                let html = '<div class="list-group list-group-flush">';
-                data.forEach((emp, idx) => {
-                    const porcentaje = emp.total_ingresos > 0 ? Math.round((emp.puntualidades / emp.total_ingresos) * 100) : 0;
-                    const iconoMedalla = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🏅';
-                    html += `
-                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
-                            <div>
-                                <span class="fw-bold">${iconoMedalla} ${idx + 1}. ${emp.nombre}</span><br>
-                                <small class="text-muted">${emp.puntualidades}/${emp.total_ingresos} veces puntual</small>
-                            </div>
-                            <span class="badge bg-primary rounded-pill">${porcentaje}%</span>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-                document.getElementById('top-puntuales-tarde').innerHTML = html;
-            }
-        })
-        .catch(err => console.error('Error:', err));
+            chartDiario = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.dias,
+                    datasets: [{
+                        label: 'Asistencias',
+                        data: data.asistencias,
+                        backgroundColor: '#22c55e',
+                        borderColor: '#16a34a',
+                        borderWidth: 2
+                    }, {
+                        label: 'Tardanzas',
+                        data: data.tardanzas,
+                        backgroundColor: '#f59e0b',
+                        borderColor: '#d97706',
+                        borderWidth: 2
+                    }, {
+                        label: 'Faltas',
+                        data: data.faltas,
+                        backgroundColor: '#ef4444',
+                        borderColor: '#dc2626',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
 
-    // Cargar Top Tardones Tarde
-    fetch(`/api/weekly-report/top-late-afternoon?${queryString}`)
+        })
+        .catch(err => {
+            console.error('Error cargando gráfico:', err);
+            document.getElementById('grafico-container').innerHTML = `
+                <div class="alert alert-warning">No se pudo cargar el gráfico</div>
+            `;
+        });
+
+    // 3) Frequent hours
+    fetch(`/api/weekly-report/frequent-hours?${queryString}`)
         .then(res => res.json())
         .then(data => {
-            if (data.length === 0) {
-                document.getElementById('top-tardes-tarde').innerHTML = `
-                    <p class="text-muted text-center mb-0">¡Nadie llegó tarde en la tarde! 🎉</p>
+            document.getElementById('horas-frecuentes').innerHTML = `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">
+                            <i class="fas fa-sun text-warning me-2"></i>Turno Mañana
+                        </span>
+                        <strong class="h5 mb-0">${data.hora_frecuente_manana}</strong>
+                    </div>
+                    <small class="text-muted">${data.frecuencia_manana} registros</small>
+                </div>
+                <hr>
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">
+                            <i class="fas fa-moon text-primary me-2"></i>Turno Tarde
+                        </span>
+                        <strong class="h5 mb-0">${data.hora_frecuente_tarde}</strong>
+                    </div>
+                    <small class="text-muted">${data.frecuencia_tarde} registros</small>
+                </div>
+            `;
+        })
+        .catch(err => {
+            console.error('Error cargando horas frecuentes:', err);
+            document.getElementById('horas-frecuentes').innerHTML = `
+                <p class="text-muted text-center mb-0">No disponible</p>
+            `;
+        });
+
+    // 4) Worst days
+    fetch(`/api/weekly-report/worst-days?${queryString}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!Array.isArray(data) || data.length === 0) {
+                document.getElementById('peores-dias').innerHTML = `
+                    <p class="text-muted text-center mb-0">Sin datos suficientes</p>
                 `;
             } else {
                 let html = '<div class="list-group list-group-flush">';
-                data.forEach((emp, idx) => {
+                data.forEach((dia) => {
                     html += `
                         <div class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <div>
-                                <span class="fw-bold">${idx + 1}. ${emp.nombre}</span><br>
-                                <small class="text-muted">${emp.tardanzas}/${emp.total_ingresos} veces tarde</small>
+                                <strong>${dia.dia}</strong><br>
+                                <small class="text-muted">${dia.fecha}</small>
                             </div>
-                            <span class="badge bg-danger rounded-pill">${emp.tardanzas} 🕐</span>
+                            <span class="badge bg-danger rounded-pill">${dia.asistencias}</span>
                         </div>
                     `;
                 });
                 html += '</div>';
-                document.getElementById('top-tardes-tarde').innerHTML = html;
+                document.getElementById('peores-dias').innerHTML = html;
             }
         })
-        .catch(err => console.error('Error:', err));
+        .catch(err => {
+            console.error('Error cargando peores días:', err);
+            document.getElementById('peores-dias').innerHTML = `
+                <p class="text-muted text-center mb-0">No disponible</p>
+            `;
+        });
+
+    // 5) Companies comparison
+    fetch(`/api/weekly-report/companies-comparison?${queryString}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!Array.isArray(data) || data.length === 0) {
+                document.getElementById('comparacion-empresas').innerHTML = `
+                    <p class="text-muted text-center mb-0">No hay datos disponibles</p>
+                `;
+            } else {
+                let html = '<div class="table-responsive"><table class="table table-hover mb-0">';
+                html += `
+                    <thead class="table-light">
+                        <tr>
+                            <th>Empresa</th>
+                            <th class="text-center">Total Empleados</th>
+                            <th class="text-center">Asistencia</th>
+                            <th style="width: 40%;">Rendimiento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                data.forEach(empresa => {
+                    const color = empresa.porcentaje_asistencia >= 80 ? 'success' :
+                                 empresa.porcentaje_asistencia >= 60 ? 'warning' : 'danger';
+                    html += `
+                        <tr>
+                            <td><strong>${empresa.nombre}</strong></td>
+                            <td class="text-center">${empresa.total_empleados}</td>
+                            <td class="text-center"><span class="badge bg-${color}">${empresa.porcentaje_asistencia}%</span></td>
+                            <td>
+                                <div class="progress" style="height: 25px;">
+                                    <div class="progress-bar bg-${color}" role="progressbar" 
+                                         style="width: ${empresa.porcentaje_asistencia}%"
+                                         aria-valuenow="${empresa.porcentaje_asistencia}" 
+                                         aria-valuemin="0" aria-valuemax="100">
+                                        ${empresa.porcentaje_asistencia}%
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table></div>';
+                document.getElementById('comparacion-empresas').innerHTML = html;
+            }
+        })
+        .catch(err => {
+            console.error('Error cargando comparación:', err);
+            document.getElementById('comparacion-empresas').innerHTML = `
+                <div class="alert alert-warning mb-0">No se pudo cargar la comparación</div>
+            `;
+        });
+
+
+// 6 & 7) TOP Puntuales y TOP Tardones - VERSIÓN CORREGIDA
+fetch(`/api/weekly-report/top-punctual?${queryString}`)
+    .then(r => r.json())
+    .catch(() => [])
+    .then(topPuntuales => {
+        if (!Array.isArray(topPuntuales) || topPuntuales.length === 0) {
+            document.getElementById('top-puntuales').innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-trophy text-muted fa-3x mb-3"></i>
+                    <p class="text-muted mb-0">No hay empleados con puntualidad perfecta</p>
+                    <small class="text-muted">Se requiere 0 tardanzas para aparecer aquí</small>
+                </div>
+            `;
+        } else {
+            let html = '<div class="list-group list-group-flush">';
+            topPuntuales.forEach((emp, idx) => {
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🏅';
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0 border-start border-success border-3">
+                        <div>
+                            <span class="fw-bold fs-6">${medal} ${idx + 1}. ${emp.nombre}</span>
+                            <span class="badge bg-success ms-2">100% Puntual</span><br>
+                            <small class="text-muted">
+                                <i class="fas fa-check-circle text-success me-1"></i>
+                                ${emp.turnos_puntuales}/${emp.total_turnos} turnos a tiempo
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-success rounded-pill fs-5">${emp.turnos_puntuales}</span><br>
+                            <small class="text-success fw-bold">Perfecto</small>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('top-puntuales').innerHTML = html;
+        }
+    })
+    .catch(err => {
+        console.error('Error cargando top puntuales:', err);
+        document.getElementById('top-puntuales').innerHTML = `
+            <p class="text-muted text-center mb-0">Error al cargar datos</p>
+        `;
+    });
+
+// TOP TARDONES
+fetch(`/api/weekly-report/top-late?${queryString}`)
+    .then(r => r.json())
+    .catch(() => [])
+    .then(topTardes => {
+        if (!Array.isArray(topTardes) || topTardes.length === 0) {
+            document.getElementById('top-tardes').innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-smile-beam text-success fa-3x mb-3"></i>
+                    <p class="text-success fw-bold mb-0">¡Excelente! 🎉</p>
+                    <small class="text-muted">Nadie llegó tarde en este período</small>
+                </div>
+            `;
+        } else {
+            let html = '<div class="list-group list-group-flush">';
+            topTardes.forEach((emp, idx) => {
+                // Calcular porcentaje de tardanzas
+                const porcentajeTarde = Math.round((emp.tardanzas / emp.total_turnos) * 100);
+                
+                html += `
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0 border-start border-warning border-3">
+                        <div>
+                            <span class="fw-bold fs-6">${idx + 1}. ${emp.nombre}</span>
+                            <span class="badge bg-warning text-dark ms-2">${porcentajeTarde}% tarde</span><br>
+                            <small class="text-muted">
+                                <i class="fas fa-clock text-warning me-1"></i>
+                                ${emp.tardanzas}/${emp.total_turnos} turnos con tardanza
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-warning text-dark rounded-pill fs-5">${emp.tardanzas}</span><br>
+                            <small class="text-warning">Tardanzas</small>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            document.getElementById('top-tardes').innerHTML = html;
+        }
+    })
+    .catch(err => {
+        console.error('Error cargando top tardes:', err);
+        document.getElementById('top-tardes').innerHTML = `
+            <p class="text-muted text-center mb-0">Error al cargar datos</p>
+        `;
+    });
+    
+
 }
+
+// Generar insights (misma lógica del código 1)
+function generarInsights(data) {
+    let insights = '';
+
+    if (data.promedio_puntualidad >= 90) {
+        insights += '<div class="alert alert-success mb-2"><i class="fas fa-check-circle me-2"></i><strong>Excelente puntualidad:</strong> El equipo mantiene un alto nivel de puntualidad.</div>';
+    } else if (data.promedio_puntualidad < 70) {
+        insights += '<div class="alert alert-warning mb-2"><i class="fas fa-exclamation-triangle me-2"></i><strong>Mejorar puntualidad:</strong> Se recomienda reforzar la cultura de puntualidad.</div>';
+    }
+
+    if (data.porcentaje_asistencia >= 85) {
+        insights += '<div class="alert alert-info mb-2"><i class="fas fa-thumbs-up me-2"></i><strong>Buena asistencia:</strong> La mayoría del personal asiste regularmente.</div>';
+    } else if (data.porcentaje_asistencia < 70) {
+        insights += '<div class="alert alert-danger mb-2"><i class="fas fa-times-circle me-2"></i><strong>Asistencia baja:</strong> Se necesita investigar las causas de las ausencias.</div>';
+    }
+
+    if (data.total_tardanzas > 10) {
+        insights += '<div class="alert alert-warning mb-2"><i class="fas fa-clock me-2"></i><strong>Muchas tardanzas:</strong> Considerar revisar los horarios o implementar incentivos.</div>';
+    }
+
+    if (!insights) {
+        insights = '<p class="text-muted mb-0">Los indicadores están dentro del rango normal. Continuar monitoreando.</p>';
+    }
+
+    document.getElementById('insights').innerHTML = insights;
+}   
 </script>
 
 {% endblock %}
