@@ -597,10 +597,6 @@ def admin_weekly_report():
     empresas = list_companies_use_case.execute()
     return render_template('weekly_report.html', empresas=empresas)
 
-
-
-
-
 @app.route('/api/weekly-report/daily-attendance')
 def api_weekly_report_daily_attendance():
     """Asistencia diaria - MODIFICADO"""
@@ -701,6 +697,132 @@ def api_weekly_report_daily_attendance():
         print(f"❌ Error en daily-attendance: {e}")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+#HOLIIIIIIIII
+@app.route('/api/weekly-report/daily-attendance-details')
+def api_weekly_report_daily_attendance_details():
+    """Detalles de asistencia diaria CON NOMBRES para tooltips"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"error": "No autorizado"}), 401
+
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+
+        empresa_id = request.args.get('empresa_id', type=int)
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({"error": "Fechas requeridas"}), 400
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        empresa_filter = "AND e.empresa_id = %s" if empresa_id else ""
+
+        # Total empleados activos
+        if empresa_id:
+            cursor.execute("SELECT id, nombre FROM EMPLEADOS WHERE empresa_id = %s AND activo = TRUE", (empresa_id,))
+        else:
+            cursor.execute("SELECT id, nombre FROM EMPLEADOS WHERE activo = TRUE")
+
+        todos_empleados = {row[0]: row[1] for row in cursor.fetchall()}
+
+        resultado = {}
+
+        # Iterar días
+        fecha_actual = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+        fecha_final = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+
+        while fecha_actual <= fecha_final:
+            if fecha_actual > datetime.now().date():
+                break
+
+            dia_str = fecha_actual.strftime('%Y-%m-%d')
+
+            params = [dia_str]
+            if empresa_id:
+                params.append(empresa_id)
+
+            # 🔥 Obtener TODOS los registros del día con nombres
+            cursor.execute(f"""
+                SELECT 
+                    e.id,
+                    e.nombre,
+                    TIME(a.entrada_manana_real) as entrada_manana,
+                    TIME(a.entrada_tarde_real) as entrada_tarde
+                FROM EMPLEADOS e
+                LEFT JOIN ASISTENCIA a ON e.id = a.empleado_id AND a.fecha = %s
+                WHERE e.activo = TRUE {empresa_filter}
+                ORDER BY e.nombre
+            """, params)
+
+            registros = cursor.fetchall()
+
+            puntuales = []
+            tardes_manana = []
+            tardes_tarde = []
+            faltas = []
+
+            for empleado_id, nombre, entrada_manana, entrada_tarde in registros:
+                # Si NO tiene ningún registro
+                if entrada_manana is None and entrada_tarde is None:
+                    faltas.append(nombre)
+                    continue
+
+                # 🕕 Verificar mañana
+                if entrada_manana:
+                    # Convertir timedelta a time si es necesario
+                    if isinstance(entrada_manana, timedelta):
+                        entrada_manana = (datetime.min + entrada_manana).time()
+
+                    hora_manana = entrada_manana.strftime('%H:%M:%S')
+                    if entrada_manana <= datetime.strptime('06:50:59', '%H:%M:%S').time():
+                        puntuales.append(f"{nombre} (M)")
+                    else:
+                        tardes_manana.append(f"{nombre} ({hora_manana})")
+
+                # 🌇 Verificar tarde
+                if entrada_tarde:
+                    if isinstance(entrada_tarde, timedelta):
+                        entrada_tarde = (datetime.min + entrada_tarde).time()
+
+                    hora_tarde = entrada_tarde.strftime('%H:%M:%S')
+                    if entrada_tarde <= datetime.strptime('14:50:59', '%H:%M:%S').time():
+                        if f"{nombre} (M)" not in puntuales:
+                            puntuales.append(f"{nombre} (T)")
+                    else:
+                        tardes_tarde.append(f"{nombre} ({hora_tarde})")
+
+            # 🗓️ Etiqueta del día (Lun, Mar, Mié, etc.)
+            dias_semana_es = {
+                'Monday': 'Lun', 'Tuesday': 'Mar', 'Wednesday': 'Mié',
+                'Thursday': 'Jue', 'Friday': 'Vie', 'Saturday': 'Sáb', 'Sunday': 'Dom'
+            }
+            dia_nombre = dias_semana_es.get(fecha_actual.strftime('%A'), fecha_actual.strftime('%A')[:3])
+            label = f"{dia_nombre} {fecha_actual.day}"
+
+            resultado[label] = {
+                "puntuales": puntuales,
+                "tardes_manana": tardes_manana,
+                "tardes_tarde": tardes_tarde,
+                "faltas": faltas,
+                "total_asistencias": len(todos_empleados) - len(faltas),
+                "total_tardanzas": len(tardes_manana) + len(tardes_tarde),
+                "total_faltas": len(faltas)
+            }
+
+            fecha_actual += timedelta(days=1)
+
+        cursor.close()
+        conn.close()
+
+        return jsonify(resultado)
+
+    except Exception as e:
+        import traceback
+        print(f"❌ Error en daily-attendance-details: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
 
 
@@ -711,7 +833,7 @@ def api_weekly_report_daily_attendance():
 
 @app.route('/api/weekly-report/frequent-hours')
 def api_weekly_report_frequent_hours():
-    """Horas frecuentes - MODIFICADO"""
+    """Horas frecuentes - MEJORADO: hora exacta más común"""
     if not session.get('admin_logged_in'):
         return jsonify({"error": "No autorizado"}), 401
     
@@ -733,42 +855,48 @@ def api_weekly_report_frequent_hours():
         if empresa_id:
             params.append(empresa_id)
         
-        # Hora mañana
+        # 🔥 Hora mañana exacta (HH:MM)
         cursor.execute(f"""
-            SELECT TIME_FORMAT(a.entrada_manana_real, '%H:00') as hora
+            SELECT TIME_FORMAT(a.entrada_manana_real, '%H:%i') as hora, COUNT(*) as freq
             FROM ASISTENCIA a
             JOIN EMPLEADOS e ON a.empleado_id = e.id
             WHERE a.fecha BETWEEN %s AND %s
               AND a.entrada_manana_real IS NOT NULL
               {empresa_filter}
+            GROUP BY hora
+            ORDER BY freq DESC
+            LIMIT 1
         """, params)
         
-        horas_manana = [row[0] for row in cursor.fetchall()]
-        frecuencia_manana = Counter(horas_manana)
-        hora_frecuente_manana = frecuencia_manana.most_common(1)[0] if frecuencia_manana else (None, 0)
+        result_manana = cursor.fetchone()
+        hora_frecuente_manana = result_manana[0] if result_manana else "N/A"
+        frecuencia_manana = result_manana[1] if result_manana else 0
         
-        # Hora tarde
+        # 🔥 Hora tarde exacta (HH:MM)
         cursor.execute(f"""
-            SELECT TIME_FORMAT(a.entrada_tarde_real, '%H:00') as hora
+            SELECT TIME_FORMAT(a.entrada_tarde_real, '%H:%i') as hora, COUNT(*) as freq
             FROM ASISTENCIA a
             JOIN EMPLEADOS e ON a.empleado_id = e.id
             WHERE a.fecha BETWEEN %s AND %s
               AND a.entrada_tarde_real IS NOT NULL
               {empresa_filter}
+            GROUP BY hora
+            ORDER BY freq DESC
+            LIMIT 1
         """, params)
         
-        horas_tarde = [row[0] for row in cursor.fetchall()]
-        frecuencia_tarde = Counter(horas_tarde)
-        hora_frecuente_tarde = frecuencia_tarde.most_common(1)[0] if frecuencia_tarde else (None, 0)
+        result_tarde = cursor.fetchone()
+        hora_frecuente_tarde = result_tarde[0] if result_tarde else "N/A"
+        frecuencia_tarde = result_tarde[1] if result_tarde else 0
         
         cursor.close()
         conn.close()
         
         return jsonify({
-            "hora_frecuente_manana": hora_frecuente_manana[0] if hora_frecuente_manana[0] else "N/A",
-            "frecuencia_manana": hora_frecuente_manana[1],
-            "hora_frecuente_tarde": hora_frecuente_tarde[0] if hora_frecuente_tarde[0] else "N/A",
-            "frecuencia_tarde": hora_frecuente_tarde[1]
+            "hora_frecuente_manana": hora_frecuente_manana,
+            "frecuencia_manana": frecuencia_manana,
+            "hora_frecuente_tarde": hora_frecuente_tarde,
+            "frecuencia_tarde": frecuencia_tarde
         })
         
     except Exception as e:
@@ -1048,7 +1176,7 @@ def api_weekly_report_top_late_afternoon():
 
 @app.route('/api/weekly-report/summary')
 def api_weekly_report_summary():
-    """Resumen general - MODIFICADO para fechas personalizadas"""
+    """Resumen general - VERSIÓN MEJORADA con desglose de tardanzas"""
     if not session.get('admin_logged_in'):
         return jsonify({"error": "No autorizado"}), 401
     
@@ -1059,7 +1187,6 @@ def api_weekly_report_summary():
         fecha_inicio = request.args.get('fecha_inicio')
         fecha_fin = request.args.get('fecha_fin')
         
-        # Si no hay fechas, usar semana actual (fallback)
         if not fecha_inicio or not fecha_fin:
             semana_offset = request.args.get('semana', type=int, default=0)
             hoy = datetime.now().date()
@@ -1083,7 +1210,7 @@ def api_weekly_report_summary():
             cursor.execute("SELECT COUNT(*) FROM EMPLEADOS WHERE activo = TRUE")
         total_empleados = cursor.fetchone()[0]
         
-        # 🔥 Contar por TURNOS (cada turno es un registro)
+        # Contar turnos para puntualidad y asistencia
         cursor.execute(f"""
             SELECT 
                 (COUNT(CASE WHEN a.entrada_manana_real IS NOT NULL THEN 1 END) + 
@@ -1114,24 +1241,34 @@ def api_weekly_report_summary():
         if dias_transcurridos < 1:
             dias_transcurridos = 1
         
-        # Turnos esperados (2 turnos por empleado por día)
+        # Turnos esperados
         turnos_esperados = total_empleados * dias_transcurridos * 2
         porcentaje_asistencia = int((registros_totales / turnos_esperados * 100)) if turnos_esperados > 0 else 0
         
-        # 🔥 Total tardanzas (cada turno tarde cuenta)
+        # 🔥 TARDANZAS CON DESGLOSE POR TURNO
         cursor.execute(f"""
             SELECT 
-                (COUNT(CASE WHEN a.entrada_manana_real IS NOT NULL 
-                            AND TIME(a.entrada_manana_real) > '06:50:59' THEN 1 END) +
-                 COUNT(CASE WHEN a.entrada_tarde_real IS NOT NULL 
-                            AND TIME(a.entrada_tarde_real) > '14:50:59' THEN 1 END)) as total_tardanzas
+                COUNT(CASE 
+                    WHEN a.entrada_manana_real IS NOT NULL 
+                         AND TIME(a.entrada_manana_real) > '06:50:59'
+                    THEN 1 
+                END) as tardanzas_manana,
+                COUNT(CASE 
+                    WHEN a.entrada_tarde_real IS NOT NULL 
+                         AND TIME(a.entrada_tarde_real) > '14:50:59'
+                    THEN 1 
+                END) as tardanzas_tarde
             FROM ASISTENCIA a
             JOIN EMPLEADOS e ON a.empleado_id = e.id
             WHERE a.fecha BETWEEN %s AND %s
               AND e.activo = TRUE
               {empresa_filter}
         """, params)
-        total_tardanzas = cursor.fetchone()[0] or 0
+        
+        result_tardanzas = cursor.fetchone()
+        tardanzas_manana = result_tardanzas[0] or 0
+        tardanzas_tarde = result_tardanzas[1] or 0
+        total_tardanzas = tardanzas_manana + tardanzas_tarde
         
         # Total faltas
         total_faltas = turnos_esperados - registros_totales
@@ -1159,7 +1296,9 @@ def api_weekly_report_summary():
             "total_empleados": total_empleados,
             "promedio_puntualidad": promedio_puntualidad,
             "porcentaje_asistencia": porcentaje_asistencia,
-            "total_tardanzas": total_tardanzas,
+            "total_tardanzas": total_tardanzas,  # 🎯 Total general
+            "tardanzas_manana": tardanzas_manana,  # 📊 Desglose
+            "tardanzas_tarde": tardanzas_tarde,     # 📊 Desglose
             "total_faltas": total_faltas,
             "horas_extras": round(horas_extras, 2),
             "dias_periodo": dias_periodo

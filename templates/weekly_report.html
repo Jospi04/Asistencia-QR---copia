@@ -194,20 +194,21 @@
             </div>
         </div>
 
+        <!-- Total Tardanzas CON DESGLOSE -->
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card border-0 shadow-sm h-100 card-stat" style="border-left-color: #f59e0b;">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h6 class="text-muted mb-0">Total Tardanzas</h6>
-                        <i class="fas fa-clock text-warning"></i>
-                    </div>
-                    <h2 class="mb-1 fw-bold text-warning" id="total-tardanzas">
-                        <div class="skeleton" style="width: 60px; height: 40px; border-radius: 4px;"></div>
-                    </h2>
-                    <small class="text-muted">Durante el período</small>
+                    <h6 class="text-muted mb-0">Total Tardanzas</h6>
+                    <i class="fas fa-clock text-warning"></i>
                 </div>
-            </div>
+                <h2 class="mb-1 fw-bold text-warning" id="total-tardanzas">
+                    <div class="skeleton" style="width: 60px; height: 40px; border-radius: 4px;"></div>
+            </h2>
+            <small class="text-muted" id="tardanzas-detalle">Durante el período</small>
         </div>
+    </div>
+</div>
 
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card border-0 shadow-sm h-100 card-stat" style="border-left-color: #ef4444;">
@@ -528,102 +529,208 @@ function cargarReporteSemanal() {
 
     const queryString = params.toString();
 
-    // 1) Summary
+    // 1) Summary - ACTUALIZADO con desglose
     fetch(`/api/weekly-report/summary?${queryString}`)
-        .then(res => {
-            if (!res.ok) throw new Error('Error en el servidor (summary)');
-            return res.json();
-        })
-        .then(data => {
-            if (data.error) throw new Error(data.error || 'Error al obtener resumen');
+    .then(res => {
+        if (!res.ok) throw new Error('Error en el servidor (summary)');
+        return res.json();
+    })
+    .then(data => {
+        if (data.error) throw new Error(data.error || 'Error al obtener resumen');
 
-            document.getElementById('periodo-texto').classList.add('fade-in');
-            document.getElementById('periodo-texto').innerHTML = `
-                <i class="fas fa-calendar-week me-2"></i>
-                ${data.periodo.inicio_formato} - ${data.periodo.fin_formato}
-            `;
-            document.getElementById('promedio-puntualidad').textContent = `${data.promedio_puntualidad}%`;
-            document.getElementById('porcentaje-asistencia').textContent = `${data.porcentaje_asistencia}%`;
-            document.getElementById('total-tardanzas').textContent = data.total_tardanzas;
-            document.getElementById('total-faltas').textContent = data.total_faltas;
-            document.getElementById('info-empleados').textContent = data.total_empleados;
-            document.getElementById('info-horas-extras').textContent = data.horas_extras;
-            document.getElementById('info-dias-analizados').textContent = data.dias_periodo;
-            document.getElementById('info-porcentaje').textContent = `${data.porcentaje_asistencia}%`;
+        document.getElementById('periodo-texto').classList.add('fade-in');
+        document.getElementById('periodo-texto').innerHTML = `
+            <i class="fas fa-calendar-week me-2"></i>
+            ${data.periodo.inicio_formato} - ${data.periodo.fin_formato}
+        `;
+        document.getElementById('promedio-puntualidad').textContent = `${data.promedio_puntualidad}%`;
+        document.getElementById('porcentaje-asistencia').textContent = `${data.porcentaje_asistencia}%`;
+        
+        // 🔥 TARDANZAS CON DESGLOSE
+        document.getElementById('total-tardanzas').textContent = data.total_tardanzas;
+        document.getElementById('tardanzas-detalle').innerHTML = `
+            <i class="fas fa-sun text-warning me-1"></i>${data.tardanzas_manana} mañana
+            <span class="mx-1">•</span>
+            <i class="fas fa-moon text-primary me-1"></i>${data.tardanzas_tarde} tarde
+        `;
+        
+        document.getElementById('total-faltas').textContent = data.total_faltas;
+        document.getElementById('info-empleados').textContent = data.total_empleados;
+        document.getElementById('info-horas-extras').textContent = data.horas_extras;
+        document.getElementById('info-dias-analizados').textContent = data.dias_periodo;
+        document.getElementById('info-porcentaje').textContent = `${data.porcentaje_asistencia}%`;
 
-            generarInsights(data);
-        })
-        .catch(err => {
-            console.error('Error cargando summary:', err);
-            mostrarError('Error al cargar el resumen del reporte');
-        })
-        .finally(() => {
-            // no hacer isLoading=false aún: dejamos para cuando terminen otros fetches? 
-            // pero para evitar bloqueo excesivo lo liberamos aquí para permitir nuevas peticiones si usuario cambia rápido.
-            isLoading = false;
-        });
+        generarInsights(data);
+    })
+    .catch(err => {
+        console.error('Error cargando summary:', err);
+        mostrarError('Error al cargar el resumen del reporte');
+    })
+    .finally(() => {
+        isLoading = false;
+    });
+
 
     // 2) Daily attendance (gráfico)
-    fetch(`/api/weekly-report/daily-attendance?${queryString}`)
-        .then(res => {
-            if (!res.ok) throw new Error('Error en el servidor (daily-attendance)');
-            return res.json();
-        })
-        .then(data => {
-            const ctx = document.getElementById('grafico-diario');
+    
+        Promise.all([
+        fetch(`/api/weekly-report/daily-attendance?${queryString}`).then(r => r.json()),
+        fetch(`/api/weekly-report/daily-attendance-details?${queryString}`).then(r => r.json())
+        ])
+            .then(([dataBasic, dataDetails]) => {
+    const ctx = document.getElementById('grafico-diario');
 
-            if (chartDiario) chartDiario.destroy();
+    if (chartDiario) chartDiario.destroy();
 
-            chartDiario = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.dias,
-                    datasets: [{
-                        label: 'Asistencias',
-                        data: data.asistencias,
-                        backgroundColor: '#22c55e',
-                        borderColor: '#16a34a',
-                        borderWidth: 2
-                    }, {
-                        label: 'Tardanzas',
-                        data: data.tardanzas,
-                        backgroundColor: '#f59e0b',
-                        borderColor: '#d97706',
-                        borderWidth: 2
-                    }, {
-                        label: 'Faltas',
-                        data: data.faltas,
-                        backgroundColor: '#ef4444',
-                        borderColor: '#dc2626',
-                        borderWidth: 2
-                    }]
+    chartDiario = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dataBasic.dias,
+            datasets: [{
+                label: 'Asistencias',
+                data: dataBasic.asistencias,
+                backgroundColor: '#22c55e',
+                borderColor: '#16a34a',
+                borderWidth: 2
+            }, {
+                label: 'Tardanzas',
+                data: dataBasic.tardanzas,
+                backgroundColor: '#f59e0b',
+                borderColor: '#d97706',
+                borderWidth: 2
+            }, {
+                label: 'Faltas',
+                data: dataBasic.faltas,
+                backgroundColor: '#ef4444',
+                borderColor: '#dc2626',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        padding: 15
+                    }
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    padding: 15,
+                    cornerRadius: 8,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(context) {
+                            return '📅 ' + context[0].label;
+                        },
+                        afterTitle: function(context) {
+                            const dia = context[0].label;
+                            const detalles = dataDetails[dia];
+                            if (!detalles) return '';
+                            
+                            return `\n📊 Resumen:\n✅ ${detalles.total_asistencias} asistencias | ⏰ ${detalles.total_tardanzas} tardanzas | 🔴 ${detalles.total_faltas} faltas`;
+                        },
+                        label: function(context) {
+                            return ''; // Ocultamos el label por defecto
+                        },
+                        afterLabel: function(context) {
+                            const dia = context.label;
+                            const detalles = dataDetails[dia];
+                            if (!detalles) return '';
+                            
+                            let texto = '\n';
+                            
+                            // ✅ Puntuales
+                            if (detalles.puntuales.length > 0) {
+                                texto += '\n✅ PUNTUALES:\n';
+                                detalles.puntuales.slice(0, 10).forEach(nombre => {
+                                    texto += `  • ${nombre}\n`;
+                                });
+                                if (detalles.puntuales.length > 10) {
+                                    texto += `  ... y ${detalles.puntuales.length - 10} más\n`;
+                                }
                             }
+                            
+                            // ⏰ Tardes Mañana
+                            if (detalles.tardes_manana.length > 0) {
+                                texto += '\n⏰ TARDE (Mañana):\n';
+                                detalles.tardes_manana.slice(0, 10).forEach(info => {
+                                    texto += `  • ${info}\n`;
+                                });
+                                if (detalles.tardes_manana.length > 10) {
+                                    texto += `  ... y ${detalles.tardes_manana.length - 10} más\n`;
+                                }
+                            }
+                            
+                            // ⏰ Tardes Tarde
+                            if (detalles.tardes_tarde.length > 0) {
+                                texto += '\n⏰ TARDE (Tarde):\n';
+                                detalles.tardes_tarde.slice(0, 10).forEach(info => {
+                                    texto += `  • ${info}\n`;
+                                });
+                                if (detalles.tardes_tarde.length > 10) {
+                                    texto += `  ... y ${detalles.tardes_tarde.length - 10} más\n`;
+                                }
+                            }
+                            
+                            // 🔴 Faltas
+                            if (detalles.faltas.length > 0) {
+                                texto += '\n🔴 AUSENTES:\n';
+                                detalles.faltas.slice(0, 10).forEach(nombre => {
+                                    texto += `  • ${nombre}\n`;
+                                });
+                                if (detalles.faltas.length > 10) {
+                                    texto += `  ... y ${detalles.faltas.length - 10} más\n`;
+                                }
+                            }
+                            
+                            return texto;
                         }
                     }
                 }
-            });
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        font: { size: 12 }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
 
-        })
-        .catch(err => {
-            console.error('Error cargando gráfico:', err);
-            document.getElementById('grafico-container').innerHTML = `
-                <div class="alert alert-warning">No se pudo cargar el gráfico</div>
-            `;
-        });
+})
+.catch(err => {
+    console.error('Error cargando gráfico:', err);
+    document.getElementById('grafico-container').innerHTML = `
+        <div class="alert alert-warning">No se pudo cargar el gráfico</div>
+    `;
+});
 
     // 3) Frequent hours
     fetch(`/api/weekly-report/frequent-hours?${queryString}`)
