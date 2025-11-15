@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}Marcaciones Incompletas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="header-gradient py-4 mb-4 rounded">
+                <div class="container">
+                    <h1 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-3"></i>Marcaciones Incompletas
+                    </h1>
+                    <p class="mb-0">Empleados que olvidaron marcar su salida</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header" style="background-color: #007B83; color: white;">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="fas fa-building me-1"></i>Empresa</label>
+                            <select class="form-select" id="empresa-select">
+                                <option value="">Todas las empresas</option>
+                                {% for empresa in empresas %}
+                                <option value="{{ empresa.id }}">{{ empresa.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label"><i class="fas fa-calendar me-1"></i>Mes</label>
+                            <select class="form-select" id="mes-select">
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label"><i class="fas fa-calendar-alt me-1"></i>Año</label>
+                            <select class="form-select" id="anio-select">
+                                <option value="2023">2023</option>
+                                <option value="2024">2024</option>
+                                <option value="2025" selected>2025</option>
+                                <option value="2026">2026</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn w-100" style="background-color: #198754; color: white;" onclick="cargarRegistros()">
+                                <i class="fas fa-search me-1"></i>Buscar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4" id="stats-container" style="display: none;">
+        <div class="col-md-4">
+            <div class="card text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-center">
+                    <i class="fas fa-exclamation-circle fa-3x mb-2"></i>
+                    <h2 id="total-incompletos" class="mb-0">0</h2>
+                    <p class="mb-0">Registros Incompletos</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white" style="background: linear-gradient(135deg, #f77070  0%, #ff0000 100%);">
+                <div class="card-body text-center">
+                    <i class="fas fa-user-times fa-3x mb-2"></i>
+                    <h2 id="total-manana" class="mb-0">0</h2>
+                    <p class="mb-0">Salidas Mañana Faltantes</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white" style="background: linear-gradient(135deg, #1e2429  0%, #031c31  100%);">
+                <div class="card-body text-center">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-2"></i>
+                    <h2 id="total-tarde" class="mb-0">0</h2>
+                    <p class="mb-0">Salidas Tarde Faltantes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de registros -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header" style="background-color: #343A40; color: white;">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Registros Incompletos</h5>
+                </div>
+                <div class="card-body">
+                    <div id="loading" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando registros...</p>
+                    </div>
+
+                    <div id="no-data" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                        <h4>¡Excelente!</h4>
+                        <p>No hay marcaciones incompletas en este período</p>
+                    </div>
+
+                    <div id="table-container" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Empleado</th>
+                                        <th>Empresa</th>
+                                        <th>Turno</th>
+                                        <th>Entrada</th>
+                                        <th>Salida Faltante</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="registros-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para agregar salida -->
+<div class="modal fade" id="modalAgregarSalida" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color: #007B83; color: white;">
+                <h5 class="modal-title"><i class="fas fa-clock me-2"></i>Agregar Hora de Salida</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Empleado:</strong></label>
+                    <p id="modal-empleado" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><strong>Fecha:</strong></label>
+                    <p id="modal-fecha" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><strong>Turno:</strong></label>
+                    <p id="modal-turno" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><strong>Hora de Entrada:</strong></label>
+                    <p id="modal-entrada" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><strong>Hora de Salida:</strong> <span class="text-danger">*</span></label>
+                    <input type="time" class="form-control" id="hora-salida-input" required>
+                    <small class="text-muted">Formato 24 horas (ej: 13:00)</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="guardarSalida()">
+                    <i class="fas fa-save me-1"></i>Guardar Salida
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let registrosActuales = [];
+let registroSeleccionado = null;
+const modal = new bootstrap.Modal(document.getElementById('modalAgregarSalida'));
+
+// Inicializar con mes y año actual
+document.addEventListener('DOMContentLoaded', function() {
+    const hoy = new Date();
+    document.getElementById('mes-select').value = hoy.getMonth() + 1;
+    document.getElementById('anio-select').value = hoy.getFullYear();
+    cargarRegistros();
+});
+
+function cargarRegistros() {
+    const empresaId = document.getElementById('empresa-select').value;
+    const mes = document.getElementById('mes-select').value;
+    const anio = document.getElementById('anio-select').value;
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('no-data').style.display = 'none';
+    document.getElementById('table-container').style.display = 'none';
+    document.getElementById('stats-container').style.display = 'none';
+
+    const params = new URLSearchParams({
+        mes: mes,
+        anio: anio
+    });
+    
+    if (empresaId) {
+        params.append('empresa_id', empresaId);
+    }
+
+    fetch(`/api/incomplete-markings?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            registrosActuales = data.registros;
+            mostrarRegistros(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error cargando registros: ' + error.message);
+        })
+        .finally(() => {
+            document.getElementById('loading').style.display = 'none';
+        });
+}
+
+function mostrarRegistros(data) {
+    const tbody = document.getElementById('registros-tbody');
+    tbody.innerHTML = '';
+
+    if (data.registros.length === 0) {
+        document.getElementById('no-data').style.display = 'block';
+        return;
+    }
+
+    document.getElementById('stats-container').style.display = 'flex';
+    document.getElementById('table-container').style.display = 'block';
+
+    // Calcular estadísticas
+    let totalManana = 0;
+    let totalTarde = 0;
+
+    data.registros.forEach(registro => {
+        registro.turnos_faltantes.forEach(turno => {
+            if (turno.turno === 'mañana') totalManana++;
+            if (turno.turno === 'tarde') totalTarde++;
+        });
+
+        registro.turnos_faltantes.forEach((turno, index) => {
+            const tr = document.createElement('tr');
+            
+            const turnoIcon = turno.turno === 'mañana' 
+                ? '<i class="fas fa-sun text-warning"></i>' 
+                : '<i class="fas fa-moon text-info"></i>';
+            
+            const turnoBadge = turno.turno === 'mañana'
+                ? '<span class="badge bg-warning">Mañana</span>'
+                : '<span class="badge bg-info">Tarde</span>';
+
+            tr.innerHTML = `
+                <td>${registro.fecha_formato}<br><small class="text-muted">${registro.dia_semana}</small></td>
+                <td><strong>${registro.empleado_nombre}</strong></td>
+                <td>${registro.empresa_nombre}</td>
+                <td>${turnoIcon} ${turnoBadge}</td>
+                <td><span class="badge bg-success">${turno.entrada}</span></td>
+                <td><span class="badge bg-danger">No registrada</span></td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="abrirModalAgregarSalida(${registro.asistencia_id}, '${turno.turno}', '${registro.empleado_nombre}', '${registro.fecha_formato}', '${turno.entrada}')">
+                        <i class="fas fa-plus me-1"></i>Agregar Salida
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarRegistro(${registro.asistencia_id}, '${registro.empleado_nombre}', '${registro.fecha_formato}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+
+    document.getElementById('total-incompletos').textContent = data.total;
+    document.getElementById('total-manana').textContent = totalManana;
+    document.getElementById('total-tarde').textContent = totalTarde;
+}
+
+function abrirModalAgregarSalida(asistenciaId, turno, empleado, fecha, entrada) {
+    registroSeleccionado = {
+        asistencia_id: asistenciaId,
+        turno: turno
+    };
+
+    document.getElementById('modal-empleado').textContent = empleado;
+    document.getElementById('modal-fecha').textContent = fecha;
+    document.getElementById('modal-turno').textContent = turno === 'mañana' ? '🌅 Mañana' : '🌙 Tarde';
+    document.getElementById('modal-entrada').textContent = entrada;
+    document.getElementById('hora-salida-input').value = '';
+
+    // Sugerir hora de salida
+    const sugerencia = turno === 'mañana' ? '13:00' : '18:00';
+    document.getElementById('hora-salida-input').value = sugerencia;
+
+    modal.show();
+}
+
+function guardarSalida() {
+    const horaSalida = document.getElementById('hora-salida-input').value;
+
+    if (!horaSalida) {
+        alert('Por favor ingresa la hora de salida');
+        return;
+    }
+
+    if (!registroSeleccionado) {
+        alert('Error: No hay registro seleccionado');
+        return;
+    }
+
+    fetch('/api/add-exit-time', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            asistencia_id: registroSeleccionado.asistencia_id,
+            turno: registroSeleccionado.turno,
+            hora_salida: horaSalida
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            modal.hide();
+            alert('✅ ' + data.message);
+            cargarRegistros();
+        } else {
+            alert('❌ Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error guardando salida: ' + error.message);
+    });
+}
+
+function eliminarRegistro(asistenciaId, empleado, fecha) {
+    if (!confirm(`¿Estás seguro de eliminar el registro de ${empleado} del ${fecha}?`)) {
+        return;
+    }
+
+    fetch('/api/delete-incomplete-marking', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            asistencia_id: asistenciaId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            cargarRegistros();
+        } else {
+            alert('❌ Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error eliminando registro: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

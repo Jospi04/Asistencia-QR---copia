@@ -1633,6 +1633,275 @@ def api_weekly_report_top_late():
         print(f"❌ Error en top late: {e}")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+#Rutasa para ver empleados que no marcaron completo o se olvidaron
+# Agregar estas rutas al final de app.py (antes del if __name__ == '__main__':)
+
+@app.route('/admin/incomplete-markings')
+def admin_incomplete_markings():
+    """Página para gestionar marcaciones incompletas"""
+    if not session.get('admin_logged_in'):
+        flash('Debes iniciar sesión para acceder a esta sección', 'error')
+        return redirect(url_for('admin_login'))
+    
+    empresas = list_companies_use_case.execute()
+    return render_template('incomplete_markings.html', empresas=empresas)
+
+
+@app.route('/api/incomplete-markings')
+def api_incomplete_markings():
+    """Obtiene registros de asistencia incompletos"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"error": "No autorizado"}), 401
+    
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+        
+        empresa_id = request.args.get('empresa_id', type=int)
+        mes = request.args.get('mes', type=int, default=datetime.now().month)
+        anio = request.args.get('anio', type=int, default=datetime.now().year)
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        empresa_filter = "AND emp.id = %s" if empresa_id else ""
+        params = [anio, mes]
+        if empresa_id:
+            params.append(empresa_id)
+        
+        # Buscar registros donde hay entrada pero no salida
+        cursor.execute(f"""
+            SELECT 
+                a.id,
+                a.empleado_id,
+                e.nombre as empleado_nombre,
+                emp.nombre as empresa_nombre,
+                a.fecha,
+                a.entrada_manana_real,
+                a.salida_manana_real,
+                a.entrada_tarde_real,
+                a.salida_tarde_real,
+                CASE 
+                    WHEN a.entrada_manana_real IS NOT NULL AND a.salida_manana_real IS NULL THEN 'mañana'
+                    WHEN a.entrada_tarde_real IS NOT NULL AND a.salida_tarde_real IS NULL THEN 'tarde'
+                    WHEN a.entrada_manana_real IS NOT NULL AND a.salida_manana_real IS NULL 
+                         AND a.entrada_tarde_real IS NOT NULL AND a.salida_tarde_real IS NULL THEN 'ambos'
+                END as turno_incompleto
+            FROM ASISTENCIA a
+            JOIN EMPLEADOS e ON a.empleado_id = e.id
+            JOIN EMPRESAS emp ON e.empresa_id = emp.id
+            WHERE YEAR(a.fecha) = %s 
+              AND MONTH(a.fecha) = %s
+              AND e.activo = TRUE
+              AND (
+                  (a.entrada_manana_real IS NOT NULL AND a.salida_manana_real IS NULL) OR
+                  (a.entrada_tarde_real IS NOT NULL AND a.salida_tarde_real IS NULL)
+              )
+              {empresa_filter}
+            ORDER BY a.fecha DESC, e.nombre ASC
+        """, params)
+        
+        registros = []
+        for row in cursor.fetchall():
+            turno_incompleto = row[9]
+            turnos_faltantes = []
+            
+            if turno_incompleto in ['mañana', 'ambos']:
+                turnos_faltantes.append({
+                    'turno': 'mañana',
+                    'entrada': str(row[5]) if row[5] else None,
+                    'salida': None
+                })
+            
+            if turno_incompleto in ['tarde', 'ambos']:
+                turnos_faltantes.append({
+                    'turno': 'tarde',
+                    'entrada': str(row[7]) if row[7] else None,
+                    'salida': None
+                })
+            
+            registros.append({
+                'asistencia_id': row[0],
+                'empleado_id': row[1],
+                'empleado_nombre': row[2],
+                'empresa_nombre': row[3],
+                'fecha': row[4].strftime('%Y-%m-%d'),
+                'fecha_formato': row[4].strftime('%d/%m/%Y'),
+                'dia_semana': row[4].strftime('%A'),
+                'turnos_faltantes': turnos_faltantes
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        # Traducir días de la semana
+        dias_traduccion = {
+            'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
+            'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
+        }
+        
+        for registro in registros:
+            registro['dia_semana'] = dias_traduccion.get(registro['dia_semana'], registro['dia_semana'])
+        
+        return jsonify({
+            'total': len(registros),
+            'registros': registros
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error en incomplete-markings: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/add-exit-time', methods=['POST'])
+def api_add_exit_time():
+    """Agregar hora de salida manualmente"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+        
+        data = request.get_json()
+        asistencia_id = data.get('asistencia_id')
+        turno = data.get('turno')  # 'mañana' o 'tarde'
+        hora_salida = data.get('hora_salida')  # formato "HH:MM"
+        
+        if not all([asistencia_id, turno, hora_salida]):
+            return jsonify({"success": False, "message": "Datos incompletos"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Obtener la fecha y hora de entrada del registro
+        cursor.execute("""
+            SELECT fecha, entrada_manana_real, entrada_tarde_real 
+            FROM ASISTENCIA 
+            WHERE id = %s
+        """, (asistencia_id,))
+        
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Registro no encontrado"}), 404
+        
+        fecha = result[0]
+        entrada_manana = result[1]
+        entrada_tarde = result[2]
+        
+        # Validar que exista la entrada correspondiente
+        if turno == 'mañana' and not entrada_manana:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "No existe entrada de mañana"}), 400
+        
+        if turno == 'tarde' and not entrada_tarde:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "No existe entrada de tarde"}), 400
+        
+        # Construir datetime completo
+        fecha_str = fecha.strftime('%Y-%m-%d')
+        salida_completa = f"{fecha_str} {hora_salida}:00"
+        
+        # Actualizar según el turno
+        if turno == 'mañana':
+            cursor.execute("""
+                UPDATE ASISTENCIA 
+                SET salida_manana_real = %s
+                WHERE id = %s
+            """, (salida_completa, asistencia_id))
+        else:  # tarde
+            cursor.execute("""
+                UPDATE ASISTENCIA 
+                SET salida_tarde_real = %s
+                WHERE id = %s
+            """, (salida_completa, asistencia_id))
+        
+        # Recalcular horas trabajadas y extras
+        cursor.execute("""
+            SELECT 
+                entrada_manana_real, salida_manana_real,
+                entrada_tarde_real, salida_tarde_real
+            FROM ASISTENCIA WHERE id = %s
+        """, (asistencia_id,))
+        
+        row = cursor.fetchone()
+        entrada_m, salida_m, entrada_t, salida_t = row
+        
+        total_minutos = 0
+        
+        if entrada_m and salida_m:
+            delta = salida_m - entrada_m
+            total_minutos += int(delta.total_seconds() / 60)
+        
+        if entrada_t and salida_t:
+            delta = salida_t - entrada_t
+            total_minutos += int(delta.total_seconds() / 60)
+        
+        horas_trabajadas = total_minutos / 60.0
+        horas_extras = max(0, horas_trabajadas - 8)
+        
+        cursor.execute("""
+            UPDATE ASISTENCIA 
+            SET horas_trabajadas = %s, horas_extras = %s
+            WHERE id = %s
+        """, (horas_trabajadas, horas_extras, asistencia_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Salida de {turno} registrada correctamente",
+            "horas_trabajadas": round(horas_trabajadas, 2),
+            "horas_extras": round(horas_extras, 2)
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error agregando salida: {e}")
+        print(traceback.format_exc())
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/delete-incomplete-marking', methods=['POST'])
+def api_delete_incomplete_marking():
+    """Eliminar registro incompleto"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+        
+        data = request.get_json()
+        asistencia_id = data.get('asistencia_id')
+        
+        if not asistencia_id:
+            return jsonify({"success": False, "message": "ID requerido"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM ASISTENCIA WHERE id = %s", (asistencia_id,))
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Registro eliminado correctamente"
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error eliminando registro: {e}")
+        print(traceback.format_exc())
+        return jsonify({"success": False, "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=8080)
