@@ -1,0 +1,459 @@
+{% extends "base.html" %}
+
+{% block title %}Registros de Asistencia - Sistema QR{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Registros de Asistencia
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <label class="form-label">Empresa</label>
+                            <select id="empresaSelect" class="form-select">
+                                <option value="">Todas las empresas</option>
+                                {% for empresa in empresas %}
+                                <option value="{{ empresa.id }}">{{ empresa.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Empleado</label>
+                            <select id="empleadoSelect" class="form-select" disabled>
+                                <option value="">Seleccione empresa primero</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Mes</label>
+                            <select id="mesSelect" class="form-select">
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Año</label>
+                            <select id="anioSelect" class="form-select">
+                                <!-- Se llenará con JavaScript -->
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button id="btnBuscar" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i>Buscar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de registros -->
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Empleado</th>
+                                    <th>Empresa</th>
+                                    <th>Entrada Mañana</th>
+                                    <th>Salida Mañana</th>
+                                    <th>Entrada Tarde</th>
+                                    <th>Salida Tarde</th>
+                                    <th>Total Horas</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaRegistros">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Seleccione filtros y presione Buscar
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Totales -->
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-0">
+                                <strong>Total de registros:</strong> <span id="totalRegistros">0</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edición -->
+<div class="modal fade" id="modalEditar" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Editar Registro de Asistencia
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editAsistenciaId">
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Empleado:</strong> <span id="editEmpleadoNombre"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Fecha:</strong> <span id="editFecha"></span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Turno Mañana -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-sun me-2 text-warning"></i>Turno Mañana</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Entrada Mañana</label>
+                                <input type="time" id="editEntradaManana" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Salida Mañana</label>
+                                <input type="time" id="editSalidaManana" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Turno Tarde -->
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0"><i class="fas fa-moon me-2 text-primary"></i>Turno Tarde</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label">Entrada Tarde</label>
+                                <input type="time" id="editEntradaTarde" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Salida Tarde</label>
+                                <input type="time" id="editSalidaTarde" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <small>Deja los campos vacíos si no hubo marcación en ese turno.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btnGuardarCambios">
+                    <i class="fas fa-save me-1"></i>Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .badge-puntual {
+        background-color: #28a745;
+    }
+    .badge-tarde {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .badge-falta {
+        background-color: #dc3545;
+    }
+    .table td {
+        vertical-align: middle;
+    }
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Variables globales
+    let registrosActuales = [];
+
+    // Inicializar
+    inicializarFechas();
+    cargarEventos();
+
+    // Funciones de inicialización
+    function inicializarFechas() {
+        const fechaActual = new Date();
+        const anioActual = fechaActual.getFullYear();
+        const mesActual = fechaActual.getMonth() + 1;
+
+        // Llenar select de años
+        for (let i = anioActual - 3; i <= anioActual + 1; i++) {
+            $('#anioSelect').append(`<option value="${i}" ${i === anioActual ? 'selected' : ''}>${i}</option>`);
+        }
+
+        // Seleccionar mes actual
+        $('#mesSelect').val(mesActual);
+    }
+
+    function cargarEventos() {
+        // Cambio de empresa
+        $('#empresaSelect').on('change', function() {
+            const empresaId = $(this).val();
+            if (empresaId) {
+                cargarEmpleados(empresaId);
+            } else {
+                $('#empleadoSelect').html('<option value="">Seleccione empresa primero</option>').prop('disabled', true);
+            }
+        });
+
+        // Botón buscar
+        $('#btnBuscar').on('click', buscarRegistros);
+
+        // Botón guardar cambios
+        $('#btnGuardarCambios').on('click', guardarCambios);
+    }
+
+    // Cargar empleados por empresa
+    function cargarEmpleados(empresaId) {
+        $.ajax({
+            url: '/api/empleados',
+            data: { empresa_id: empresaId },
+            success: function(empleados) {
+                let options = '<option value="">Todos los empleados</option>';
+                empleados.forEach(emp => {
+                    if (emp.activo) {
+                        options += `<option value="${emp.id}">${emp.nombre}</option>`;
+                    }
+                });
+                $('#empleadoSelect').html(options).prop('disabled', false);
+            },
+            error: function() {
+                alert('Error al cargar empleados');
+            }
+        });
+    }
+
+    // Buscar registros
+    function buscarRegistros() {
+        const empresaId = $('#empresaSelect').val();
+        const empleadoId = $('#empleadoSelect').val();
+        const mes = $('#mesSelect').val();
+        const anio = $('#anioSelect').val();
+
+        if (!empresaId) {
+            alert('Seleccione una empresa');
+            return;
+        }
+
+        $('#btnBuscar').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Buscando...');
+
+        $.ajax({
+            url: '/api/attendance-records',
+            data: {
+                empresa_id: empresaId,
+                empleado_id: empleadoId || null,
+                mes: mes,
+                anio: anio
+            },
+            success: function(response) {
+                registrosActuales = response.registros;
+                mostrarRegistros(response.registros);
+                $('#totalRegistros').text(response.total);
+            },
+            error: function(xhr) {
+                alert('Error: ' + (xhr.responseJSON?.error || 'Error al cargar registros'));
+            },
+            complete: function() {
+                $('#btnBuscar').prop('disabled', false).html('<i class="fas fa-search me-1"></i>Buscar');
+            }
+        });
+    }
+
+    // Mostrar registros en tabla
+    function mostrarRegistros(registros) {
+        const tbody = $('#tablaRegistros');
+        
+        if (registros.length === 0) {
+            tbody.html('<tr><td colspan="9" class="text-center text-muted">No se encontraron registros</td></tr>');
+            return;
+        }
+
+        let html = '';
+        registros.forEach(reg => {
+            const totalHoras = calcularTotalHoras(reg);
+            
+            html += `
+                <tr>
+                    <td>${reg.fecha_formato}<br><small class="text-muted">${reg.dia_semana}</small></td>
+                    <td>${reg.empleado_nombre}</td>
+                    <td><span class="badge bg-secondary">${reg.empresa_nombre}</span></td>
+                    <td>${formatearHora(reg.entrada_manana_real)}</td>
+                    <td>${formatearHora(reg.salida_manana_real)}</td>
+                    <td>${formatearHora(reg.entrada_tarde_real)}</td>
+                    <td>${formatearHora(reg.salida_tarde_real)}</td>
+                    <td><strong>${totalHoras}</strong></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary me-1" onclick="editarRegistro(${reg.asistencia_id})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="eliminarRegistro(${reg.asistencia_id}, '${reg.empleado_nombre}', '${reg.fecha_formato}')" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.html(html);
+    }
+
+    // Formatear hora
+    function formatearHora(hora) {
+        if (!hora || hora === 'None' || hora === 'null') {
+            return '<span class="text-muted">-</span>';
+        }
+        return `<span class="badge bg-info">${hora}</span>`;
+    }
+
+    // Calcular total de horas
+    function calcularTotalHoras(registro) {
+        let totalMinutos = 0;
+
+        // Mañana
+        if (registro.entrada_manana_real && registro.salida_manana_real) {
+            try {
+                const [hE, mE] = registro.entrada_manana_real.split(':').map(Number);
+                const [hS, mS] = registro.salida_manana_real.split(':').map(Number);
+                const minEntrada = hE * 60 + mE;
+                const minSalida = hS * 60 + mS;
+                totalMinutos += (minSalida - minEntrada);
+            } catch(e) {
+                console.error('Error calculando mañana:', e);
+            }
+        }
+
+        // Tarde
+        if (registro.entrada_tarde_real && registro.salida_tarde_real) {
+            try {
+                const [hE, mE] = registro.entrada_tarde_real.split(':').map(Number);
+                const [hS, mS] = registro.salida_tarde_real.split(':').map(Number);
+                const minEntrada = hE * 60 + mE;
+                const minSalida = hS * 60 + mS;
+                totalMinutos += (minSalida - minEntrada);
+            } catch(e) {
+                console.error('Error calculando tarde:', e);
+            }
+        }
+
+        if (totalMinutos <= 0) return '-';
+
+        const horas = Math.floor(totalMinutos / 60);
+        const minutos = Math.round(totalMinutos % 60);
+        return `${horas}h ${minutos}m`;
+    }
+
+    // Editar registro (función global)
+    window.editarRegistro = function(asistenciaId) {
+        const registro = registrosActuales.find(r => r.asistencia_id === asistenciaId);
+        if (!registro) return;
+
+        $('#editAsistenciaId').val(asistenciaId);
+        $('#editEmpleadoNombre').text(registro.empleado_nombre);
+        $('#editFecha').text(registro.fecha_formato);
+
+        // Llenar campos con horas existentes
+        $('#editEntradaManana').val(registro.entrada_manana_real || '');
+        $('#editSalidaManana').val(registro.salida_manana_real || '');
+        $('#editEntradaTarde').val(registro.entrada_tarde_real || '');
+        $('#editSalidaTarde').val(registro.salida_tarde_real || '');
+
+        $('#modalEditar').modal('show');
+    };
+
+    // Guardar cambios
+    function guardarCambios() {
+        const asistenciaId = $('#editAsistenciaId').val();
+        const datos = {
+            asistencia_id: parseInt(asistenciaId),
+            entrada_manana: $('#editEntradaManana').val() || null,
+            salida_manana: $('#editSalidaManana').val() || null,
+            entrada_tarde: $('#editEntradaTarde').val() || null,
+            salida_tarde: $('#editSalidaTarde').val() || null
+        };
+
+        $('#btnGuardarCambios').prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Guardando...');
+
+        $.ajax({
+            url: '/api/update-attendance-record',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(datos),
+            success: function(response) {
+                alert('✅ ' + response.message);
+                $('#modalEditar').modal('hide');
+                buscarRegistros();
+            },
+            error: function(xhr) {
+                alert('❌ ' + (xhr.responseJSON?.message || 'Error al guardar'));
+            },
+            complete: function() {
+                $('#btnGuardarCambios').prop('disabled', false).html('<i class="fas fa-save me-1"></i>Guardar Cambios');
+            }
+        });
+    }
+
+    // Eliminar registro (función global)
+    window.eliminarRegistro = function(asistenciaId, empleadoNombre, fecha) {
+        if (!confirm(`¿Eliminar el registro de ${empleadoNombre} del día ${fecha}?`)) {
+            return;
+        }
+
+        $.ajax({
+            url: '/api/delete-attendance-record',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ asistencia_id: asistenciaId }),
+            success: function(response) {
+                alert('✅ ' + response.message);
+                buscarRegistros();
+            },
+            error: function(xhr) {
+                alert('❌ ' + (xhr.responseJSON?.message || 'Error al eliminar'));
+            }
+        });
+    };
+});
+</script>
+{% endblock %}

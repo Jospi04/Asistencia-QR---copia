@@ -375,6 +375,9 @@ def api_get_asistencia_empleado(empleado_id):
         print(f"Error en api_get_asistencia_empleado: {e}")
         return jsonify({"error": str(e)}), 500
 
+# Asegúrate de tener este import arriba (normalmente ya lo tienes en app.py)
+from types import SimpleNamespace 
+
 @app.route('/api/reports/export/excel')
 def export_report_excel():
     try:
@@ -386,10 +389,59 @@ def export_report_excel():
             flash('Empresa ID requerido', 'error')
             return redirect(url_for('reports'))
         
+        # 1. Obtener empleados y rango de fechas
         empleados = empleado_repo.get_by_empresa_id(empresa_id)
-        primer_dia = f"{anio}-{mes:02d}-01"
-        ultimo_dia = f"{anio}-{mes:02d}-{calendar.monthrange(anio, mes)[1]}"
+        _, last_day = calendar.monthrange(anio, mes)
         
+        # 2. CONEXIÓN RÁPIDA (BATCH)
+        from src.infrastructure.mysql_connection import get_connection
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Traemos todo de una vez
+        query_batch = """
+            SELECT 
+                a.empleado_id, 
+                DATE(a.fecha) as fecha_dia,
+                a.entrada_manana_real, 
+                a.salida_manana_real, 
+                a.entrada_tarde_real, 
+                a.salida_tarde_real
+            FROM ASISTENCIA a
+            JOIN EMPLEADOS e ON a.empleado_id = e.id
+            WHERE e.empresa_id = %s 
+              AND YEAR(a.fecha) = %s 
+              AND MONTH(a.fecha) = %s
+        """
+        cursor.execute(query_batch, (empresa_id, anio, mes))
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # 3. PROCESAMIENTO Y CACHÉ (AQUÍ ESTÁ LA CORRECCIÓN DEL ERROR)
+        asistencia_cache = {}
+        
+        # Función auxiliar para convertir timedelta (MySQL) a time (Python)
+        def convertir_tiempo(valor):
+            if isinstance(valor, timedelta):
+                # Sumamos el timedelta a la "fecha mínima" para extraer la hora
+                return (datetime.min + valor).time()
+            return valor
+
+        for row in rows:
+            emp_id, fecha_dt, ent_m, sal_m, ent_t, sal_t = row
+            key = (emp_id, str(fecha_dt))
+            
+            # Convertimos los valores antes de guardarlos
+            asistencia_obj = SimpleNamespace(
+                entrada_manana_real=convertir_tiempo(ent_m),
+                salida_manana_real=convertir_tiempo(sal_m),
+                entrada_tarde_real=convertir_tiempo(ent_t),
+                salida_tarde_real=convertir_tiempo(sal_t)
+            )
+            asistencia_cache[key] = asistencia_obj
+
+        # 4. GENERACIÓN DEL EXCEL (CÓDIGO ORIGINAL SIN CAMBIOS)
         output = BytesIO()
         wb = Workbook()
         ws = wb.active
@@ -400,10 +452,8 @@ def export_report_excel():
         alignment_center = Alignment(horizontal="center", vertical="center")
         
         thin_border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
+            left=Side(style='thin'), right=Side(style='thin'),
+            top=Side(style='thin'), bottom=Side(style='thin')
         )
         
         fila_actual = 1
@@ -435,10 +485,12 @@ def export_report_excel():
             for dia in range(1, dias_del_mes + 1):
                 fecha = f"{anio}-{mes:02d}-{dia:02d}"
                 
-                asistencia = asistencia_repo.get_by_empleado_and_fecha(empleado.id, fecha)
+                # Buscamos en el caché en lugar de la DB
+                asistencia = asistencia_cache.get((empleado.id, fecha))
                 
                 if asistencia:
                     total_manana = ""
+                    # Ahora .hour funcionará porque ya convertimos el timedelta a time
                     if asistencia.entrada_manana_real and asistencia.salida_manana_real:
                         minutos_manana = int((asistencia.salida_manana_real.hour * 60 + asistencia.salida_manana_real.minute) - 
                                            (asistencia.entrada_manana_real.hour * 60 + asistencia.entrada_manana_real.minute))
@@ -494,6 +546,7 @@ def export_report_excel():
                 
                 fila_actual += 1
             
+            # Totales finales (sin cambios)
             total_manana_mes = minutos_a_hhmm(total_manana_minutos)
             total_tarde_mes = minutos_a_hhmm(total_tarde_minutos)
             total_dia_mes = minutos_a_hhmm(total_manana_minutos + total_tarde_minutos)
@@ -506,12 +559,8 @@ def export_report_excel():
             horas_extras_mes = minutos_a_hhmm(minutos_extras_mes)
             
             valores_totales = [
-                "TOTAL MES",
-                "", "", total_manana_mes,
-                "", "", total_tarde_mes,
-                total_dia_mes,
-                horas_normales_mes,
-                horas_extras_mes
+                "TOTAL MES", "", "", total_manana_mes, "", "", total_tarde_mes,
+                total_dia_mes, horas_normales_mes, horas_extras_mes
             ]
             for col, valor in enumerate(valores_totales, 1):
                 cell = ws.cell(row=fila_actual, column=col, value=valor)
@@ -520,10 +569,9 @@ def export_report_excel():
                 cell.border = thin_border
                 if col == 1:
                     cell.alignment = Alignment(horizontal="center")
-            fila_actual += 1
-            
-            fila_actual += 1
+            fila_actual += 2
         
+        # Ajuste de ancho de columnas
         column_widths = [8, 15, 15, 15, 15, 15, 15, 15, 15, 15]
         for i, width in enumerate(column_widths, 1):
             ws.column_dimensions[get_column_letter(i)].width = width
@@ -542,6 +590,10 @@ def export_report_excel():
         )
         
     except Exception as e:
+        # Esto imprimirá el error real en los logs de Fly.io
+        print(f"ERROR CRÍTICO EXPORT EXCEL: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         flash(f'Error generando reporte Excel: {str(e)}', 'error')
         return redirect(url_for('reports'))
 
@@ -1903,5 +1955,237 @@ def api_delete_incomplete_marking():
         print(traceback.format_exc())
         return jsonify({"success": False, "message": str(e)}), 500
 
+# GESTIÓN DE REGISTROS DE ASISTENCIA PRO..
+
+@app.route('/admin/attendance-records')
+def admin_attendance_records():
+    """Página principal de gestión de registros de asistencia"""
+    if not session.get('admin_logged_in'):
+        flash('Debes iniciar sesión para acceder a esta sección', 'error')
+        return redirect(url_for('admin_login'))
+    
+    empresas = list_companies_use_case.execute()
+    return render_template('attendance_records.html', empresas=empresas)
+
+
+@app.route('/api/attendance-records')
+def api_attendance_records():
+    """Obtiene registros de asistencia con filtros"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"error": "No autorizado"}), 401
+    
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+        
+        empresa_id = request.args.get('empresa_id', type=int)
+        empleado_id = request.args.get('empleado_id', type=int)
+        mes = request.args.get('mes', type=int, default=datetime.now().month)
+        anio = request.args.get('anio', type=int, default=datetime.now().year)
+        
+        if not empresa_id:
+            return jsonify({"error": "Empresa ID requerido"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Query simplificado - Solo las horas de entrada y salida
+        query = """
+            SELECT 
+                a.id as asistencia_id,
+                a.empleado_id,
+                e.nombre as empleado_nombre,
+                emp.nombre as empresa_nombre,
+                a.fecha,
+                a.entrada_manana_real,
+                a.salida_manana_real,
+                a.entrada_tarde_real,
+                a.salida_tarde_real
+            FROM ASISTENCIA a
+            JOIN EMPLEADOS e ON a.empleado_id = e.id
+            JOIN EMPRESAS emp ON e.empresa_id = emp.id
+            WHERE YEAR(a.fecha) = %s 
+              AND MONTH(a.fecha) = %s
+              AND emp.id = %s
+        """
+        
+        params = [anio, mes, empresa_id]
+        
+        if empleado_id:
+            query += " AND e.id = %s"
+            params.append(empleado_id)
+        
+        query += " ORDER BY a.fecha DESC, e.nombre ASC"
+        
+        cursor.execute(query, params)
+        
+        registros = []
+        dias_traduccion = {
+            'Monday': 'Lunes', 'Tuesday': 'Martes', 'Wednesday': 'Miércoles',
+            'Thursday': 'Jueves', 'Friday': 'Viernes', 'Saturday': 'Sábado', 'Sunday': 'Domingo'
+        }
+        
+        for row in cursor.fetchall():
+            fecha_obj = row[4]
+            dia_semana_en = fecha_obj.strftime('%A')
+            dia_semana_es = dias_traduccion.get(dia_semana_en, dia_semana_en)
+            
+            # Función auxiliar para formatear datetime a HH:MM
+            def formatear_hora_bd(valor):
+                if not valor:
+                    return None
+                if isinstance(valor, str):
+                    # Si ya es string, extraer HH:MM
+                    partes = valor.split(' ')
+                    if len(partes) > 1:
+                        return partes[1][:5]  # HH:MM
+                    return valor[:5]
+                elif hasattr(valor, 'strftime'):
+                    # Si es datetime, formatear
+                    return valor.strftime('%H:%M')
+                elif hasattr(valor, 'total_seconds'):
+                    # Si es timedelta
+                    total_seconds = int(valor.total_seconds())
+                    horas = total_seconds // 3600
+                    minutos = (total_seconds % 3600) // 60
+                    return f"{horas:02d}:{minutos:02d}"
+                return str(valor)[:5] if valor else None
+            
+            registros.append({
+                'asistencia_id': row[0],
+                'empleado_id': row[1],
+                'empleado_nombre': row[2],
+                'empresa_nombre': row[3],
+                'fecha': fecha_obj.strftime('%Y-%m-%d'),
+                'fecha_formato': fecha_obj.strftime('%d/%m/%Y'),
+                'dia_semana': dia_semana_es,
+                'entrada_manana_real': formatear_hora_bd(row[5]),
+                'salida_manana_real': formatear_hora_bd(row[6]),
+                'entrada_tarde_real': formatear_hora_bd(row[7]),
+                'salida_tarde_real': formatear_hora_bd(row[8])
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'total': len(registros),
+            'registros': registros
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error en attendance-records: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/update-attendance-record', methods=['POST'])
+def api_update_attendance_record():
+    """Actualizar registro de asistencia - Solo horas de entrada/salida"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+        
+        data = request.get_json()
+        asistencia_id = data.get('asistencia_id')
+        entrada_manana = data.get('entrada_manana')
+        salida_manana = data.get('salida_manana')
+        entrada_tarde = data.get('entrada_tarde')
+        salida_tarde = data.get('salida_tarde')
+        
+        if not asistencia_id:
+            return jsonify({"success": False, "message": "ID de asistencia requerido"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Obtener la fecha del registro
+        cursor.execute("SELECT fecha FROM ASISTENCIA WHERE id = %s", (asistencia_id,))
+        result = cursor.fetchone()
+        
+        if not result:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Registro no encontrado"}), 404
+        
+        fecha = result[0]
+        fecha_str = fecha.strftime('%Y-%m-%d')
+        
+        # Construir valores datetime completos (o NULL si está vacío)
+        entrada_manana_dt = f"{fecha_str} {entrada_manana}:00" if entrada_manana else None
+        salida_manana_dt = f"{fecha_str} {salida_manana}:00" if salida_manana else None
+        entrada_tarde_dt = f"{fecha_str} {entrada_tarde}:00" if entrada_tarde else None
+        salida_tarde_dt = f"{fecha_str} {salida_tarde}:00" if salida_tarde else None
+        
+        # Actualizar SOLO las horas de entrada/salida
+        cursor.execute("""
+            UPDATE ASISTENCIA 
+            SET entrada_manana_real = %s,
+                salida_manana_real = %s,
+                entrada_tarde_real = %s,
+                salida_tarde_real = %s
+            WHERE id = %s
+        """, (entrada_manana_dt, salida_manana_dt, entrada_tarde_dt, salida_tarde_dt, asistencia_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Horarios actualizados correctamente"
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error actualizando registro: {e}")
+        print(traceback.format_exc())
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@app.route('/api/delete-attendance-record', methods=['POST'])
+def api_delete_attendance_record():
+    """Eliminar registro de asistencia completo"""
+    if not session.get('admin_logged_in'):
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    
+    try:
+        from src.infrastructure.mysql_connection import get_connection
+        
+        data = request.get_json()
+        asistencia_id = data.get('asistencia_id')
+        
+        if not asistencia_id:
+            return jsonify({"success": False, "message": "ID requerido"}), 400
+        
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        # Verificar que existe
+        cursor.execute("SELECT id FROM ASISTENCIA WHERE id = %s", (asistencia_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Registro no encontrado"}), 404
+        
+        # Eliminar
+        cursor.execute("DELETE FROM ASISTENCIA WHERE id = %s", (asistencia_id,))
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Registro eliminado correctamente"
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error eliminando registro: {e}")
+        print(traceback.format_exc())
+        return jsonify({"success": False, "message": str(e)}), 500
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=8080)
