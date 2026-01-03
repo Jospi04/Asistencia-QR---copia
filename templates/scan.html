@@ -542,6 +542,45 @@ body {
     width: 100% !important;
     height: auto !important;
 }
+/* --- AGREGAR ESTO AL FINAL DE TU CSS PARA ARREGLAR EL DESCUADRE --- */
+
+/* Forzar que el contenedor interno llene el hexágono */
+#scanner-container {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* Corta lo que sobresalga de los bordes redondeados */
+    position: relative;
+    padding: 0 !important; /* Quita paddings raros que pone la librería */
+    border: none !important;
+}
+
+/* Forzar que el video cubra todo el espacio (tipo "cover" en CSS) */
+#scanner-container video {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important; /* ESTO ES CLAVE: Evita bordes negros */
+    border-radius: 20px !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Ocultar elementos feos que a veces agrega la librería (botones de permisos, info, etc) */
+#scanner-container img, 
+#html5-qrcode-anchor-scan-type-change {
+    display: none !important;
+}
+
+/* Ajuste móvil para que el hexágono no sea gigante */
+@media (max-width: 480px) {
+    .scanner-hexagon {
+        max-width: 100%;
+        height: 350px; /* Altura fija en móvil para que no empuje todo */
+    }
+}
 </style>
 
 <div class="scan-wrapper">
@@ -909,8 +948,8 @@ function actualizarHora() {
     const nEl = document.getElementById('nav-time');
     const ndEl = document.getElementById('nav-date');
     
-    if (hEl) hEl.textContent = now.toLocaleTimeString('es-ES', {hour12: false});
-    if (nEl) nEl.textContent = now.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+    if (hEl) hEl.textContent = now.toLocaleTimeString('es-ES', {hour12: true});
+    if (nEl) nEl.textContent = now.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit',hour12: true});
     if (fEl) fEl.textContent = now.toLocaleDateString('es-ES', {weekday: 'long', day: 'numeric', month: 'long'});
     if (ndEl) ndEl.textContent = now.toLocaleDateString('es-ES', {day: 'numeric', month: 'short', year: 'numeric'});
     

@@ -418,13 +418,11 @@ def export_report_excel():
         cursor.close()
         conn.close()
 
-        # 3. PROCESAMIENTO Y CACHÉ (AQUÍ ESTÁ LA CORRECCIÓN DEL ERROR)
+        # 3. PROCESAMIENTO Y CACHÉ
         asistencia_cache = {}
         
-        # Función auxiliar para convertir timedelta (MySQL) a time (Python)
         def convertir_tiempo(valor):
             if isinstance(valor, timedelta):
-                # Sumamos el timedelta a la "fecha mínima" para extraer la hora
                 return (datetime.min + valor).time()
             return valor
 
@@ -432,7 +430,6 @@ def export_report_excel():
             emp_id, fecha_dt, ent_m, sal_m, ent_t, sal_t = row
             key = (emp_id, str(fecha_dt))
             
-            # Convertimos los valores antes de guardarlos
             asistencia_obj = SimpleNamespace(
                 entrada_manana_real=convertir_tiempo(ent_m),
                 salida_manana_real=convertir_tiempo(sal_m),
@@ -441,20 +438,46 @@ def export_report_excel():
             )
             asistencia_cache[key] = asistencia_obj
 
-        # 4. GENERACIÓN DEL EXCEL (CÓDIGO ORIGINAL SIN CAMBIOS)
+        # 4. GENERACIÓN DEL EXCEL
         output = BytesIO()
         wb = Workbook()
         ws = wb.active
         ws.title = "Reporte Diario"
         
+        # Estilos Generales
         header_font = Font(bold=True)
         header_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
         alignment_center = Alignment(horizontal="center", vertical="center")
-        
         thin_border = Border(
             left=Side(style='thin'), right=Side(style='thin'),
             top=Side(style='thin'), bottom=Side(style='thin')
         )
+
+        # coores para dfeciar 
+        # Color Rojo suave para Feriados
+        feriado_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid") 
+        # Color Naranja/Amarillo suave para Domingos
+        domingo_fill = PatternFill(start_color="0070C0", end_color="0070C0", fill_type="solid") 
+
+        # LISTA DE FERIADOS PERÚ 2026 (Sector Privado)
+        lista_feriados = [
+            f"{anio}-01-01", # Año Nuevo
+            f"{anio}-04-02", # Jueves Santo
+            f"{anio}-04-03", # Viernes Santo
+            f"{anio}-05-01", # Día del Trabajo
+            f"{anio}-06-07", # Batalla de Arica y Día de la Bandera
+            f"{anio}-06-29", # San Pedro y San Pablo
+            f"{anio}-07-23", # Día de la Fuerza Aérea del Perú
+            f"{anio}-07-28", # Fiestas Patrias
+            f"{anio}-07-29", # Fiestas Patrias
+            f"{anio}-08-06", # Batalla de Junín
+            f"{anio}-08-30", # Santa Rosa de Lima
+            f"{anio}-10-08", # Combate de Angamos
+            f"{anio}-11-01", # Día de Todos los Santos
+            f"{anio}-12-08", # Inmaculada Concepción
+            f"{anio}-12-09", # Batalla de Ayacucho
+            f"{anio}-12-25", # Navidad
+        ]
         
         fila_actual = 1
         
@@ -483,14 +506,18 @@ def export_report_excel():
             dias_del_mes = calendar.monthrange(anio, mes)[1]
             
             for dia in range(1, dias_del_mes + 1):
-                fecha = f"{anio}-{mes:02d}-{dia:02d}"
+                fecha_str = f"{anio}-{mes:02d}-{dia:02d}"
+                fecha_dt = datetime(anio, mes, dia)
                 
-                # Buscamos en el caché en lugar de la DB
-                asistencia = asistencia_cache.get((empleado.id, fecha))
+                # DETECTAR SI ES DOMINGO O FERIADO
+                es_domingo = (fecha_dt.weekday() == 6)
+                es_feriado = (fecha_str in lista_feriados)
+                
+                # Buscamos en el caché
+                asistencia = asistencia_cache.get((empleado.id, fecha_str))
                 
                 if asistencia:
                     total_manana = ""
-                    # Ahora .hour funcionará porque ya convertimos el timedelta a time
                     if asistencia.entrada_manana_real and asistencia.salida_manana_real:
                         minutos_manana = int((asistencia.salida_manana_real.hour * 60 + asistencia.salida_manana_real.minute) - 
                                            (asistencia.entrada_manana_real.hour * 60 + asistencia.entrada_manana_real.minute))
@@ -538,15 +565,25 @@ def export_report_excel():
                 else:
                     valores = [dia, "", "", "", "", "", "", "", "", ""]
                 
+                # PINTAR CELDAS
                 for col, valor in enumerate(valores, 1):
                     cell = ws.cell(row=fila_actual, column=col, value=valor)
                     cell.border = thin_border
+                    
                     if col == 1:
                         cell.alignment = Alignment(horizontal="center")
-                
+                    
+                    # 🔥 LÓGICA DE COLORES ACTUALIZADA 🔥
+                    if es_feriado:
+                        # Prioridad 1: Feriado (Rojo)
+                        cell.fill = feriado_fill
+                    elif es_domingo:
+                        # Prioridad 2: Domingo (Naranja/Amarillo)
+                        cell.fill = domingo_fill
+
                 fila_actual += 1
             
-            # Totales finales (sin cambios)
+            # Totales finales (Igual que siempre)
             total_manana_mes = minutos_a_hhmm(total_manana_minutos)
             total_tarde_mes = minutos_a_hhmm(total_tarde_minutos)
             total_dia_mes = minutos_a_hhmm(total_manana_minutos + total_tarde_minutos)
@@ -590,7 +627,6 @@ def export_report_excel():
         )
         
     except Exception as e:
-        # Esto imprimirá el error real en los logs de Fly.io
         print(f"ERROR CRÍTICO EXPORT EXCEL: {str(e)}")
         import traceback
         print(traceback.format_exc())
